@@ -1,20 +1,14 @@
-import { isLocation } from "./location.js";
+/** Remembrance entity rules — no I/O. */
 
-export const HEBREW_MONTHS = [
+export const HEBREW_MONTHS = Object.freeze([
   "Tishrei", "Cheshvan", "Kislev", "Tevet", "Sh'vat",
   "Adar", "Adar I", "Adar II",
   "Nisan", "Iyyar", "Sivan", "Tamuz", "Av", "Elul",
-];
+]);
 
-export const STORAGE_KEY = "or-zarua-remembrances-v1";
-export const LOCATION_KEY = "or-zarua-last-location-v1";
 export const MAX_REMEMBRANCES = 200;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-function defaultStorage() {
-  return globalThis.localStorage;
-}
 
 function isIsoDate(value) {
   return typeof value === "string" && ISO_DATE.test(value);
@@ -57,79 +51,42 @@ export function isRemembrance(row) {
   );
 }
 
-export function readRemembrances(storage = defaultStorage()) {
-  try {
-    const parsed = JSON.parse(storage.getItem(STORAGE_KEY) || "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map(coerceRemembrance)
-      .filter(isRemembrance)
-      .slice(0, MAX_REMEMBRANCES);
-  } catch {
-    return [];
-  }
+export function sanitizeRemembrances(rows) {
+  return rows.map(coerceRemembrance).filter(isRemembrance).slice(0, MAX_REMEMBRANCES);
 }
 
-export function writeRemembrances(records, storage = defaultStorage()) {
-  const coerced = records.map(coerceRemembrance);
+export function assertWritableRemembrances(rows) {
+  const coerced = rows.map(coerceRemembrance);
   if (coerced.some((row) => !isRemembrance(row))) {
     throw new Error("A remembrance could not be saved because it is missing required fields.");
   }
   if (coerced.length > MAX_REMEMBRANCES) {
     throw new Error(`This browser can keep up to ${MAX_REMEMBRANCES} remembrances. Export and remove a few.`);
   }
-  try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(coerced));
-  } catch (error) {
-    if (error.name === "QuotaExceededError") {
-      throw new Error("This browser is out of space for saved remembrances. Export and remove a few.");
-    }
-    throw new Error("Saved remembrances could not be written to this browser.");
-  }
   return coerced;
-}
-
-export function mergeUpcomingDates(updatesById, storage = defaultStorage()) {
-  const current = readRemembrances(storage);
-  const next = current.map((record) => {
-    const patch = updatesById.get(record.id);
-    return patch ? { ...record, ...patch } : record;
-  });
-  return writeRemembrances(next, storage);
-}
-
-export function readLastLocation(storage = defaultStorage()) {
-  try {
-    const parsed = JSON.parse(storage.getItem(LOCATION_KEY) || "null");
-    if (!parsed || typeof parsed.name !== "string" || !isLocation(parsed.location)) return null;
-    return { name: parsed.name, location: parsed.location };
-  } catch {
-    return null;
-  }
-}
-
-export function writeLastLocation(location, name, storage = defaultStorage()) {
-  if (!isLocation(location) || typeof name !== "string") return;
-  try {
-    storage.setItem(LOCATION_KEY, JSON.stringify({ location, name }));
-  } catch {
-    // Location memory is optional; ignore quota or private-mode failures.
-  }
 }
 
 export function serializeExport(records, exportedAt = new Date().toISOString()) {
   return {
     version: 1,
     exportedAt,
-    remembrances: records.map(coerceRemembrance).filter(isRemembrance),
+    remembrances: sanitizeRemembrances(records),
   };
 }
 
 export function parseImport(payload) {
-  const parsed = typeof payload === "string" ? JSON.parse(payload) : payload;
+  let parsed;
+  try {
+    parsed = typeof payload === "string" ? JSON.parse(payload) : payload;
+  } catch {
+    throw new Error("This file is not valid JSON. Export a remembrances backup and try again.");
+  }
+  if (typeof parsed === "string" || parsed instanceof ArrayBuffer || ArrayBuffer.isView?.(parsed)) {
+    throw new Error("This file does not contain remembrances.");
+  }
   const rows = Array.isArray(parsed) ? parsed : parsed?.remembrances;
   if (!Array.isArray(rows)) throw new Error("This file does not contain remembrances.");
-  const remembrances = rows.map(coerceRemembrance).filter(isRemembrance);
+  const remembrances = sanitizeRemembrances(rows);
   if (!remembrances.length) throw new Error("No valid remembrances were found in this file.");
   return remembrances;
 }
@@ -147,4 +104,15 @@ export function mergeImported(existing, incoming) {
     added: added.length,
     skipped: incoming.length - added.length,
   };
+}
+
+export function applyUpcomingPatches(records, updatesById) {
+  return records.map((record) => {
+    const patch = updatesById.get(record.id);
+    return patch ? { ...record, ...patch } : record;
+  });
+}
+
+export function sortByNextIso(records) {
+  return [...records].sort((a, b) => (a.nextIso || "9999").localeCompare(b.nextIso || "9999"));
 }

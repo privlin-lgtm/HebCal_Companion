@@ -28,6 +28,25 @@ Example using VS Code Live Server:
 2. Open the project folder in VS Code.
 3. Right-click `index.html` and choose `Open with Live Server`.
 
+## Architecture
+
+The app follows a small Clean Architecture layout under `src/`:
+
+- `domain/` — pure calendar, location, and remembrance rules (no I/O)
+- `application/` — use-case services that depend on injected ports
+- `infrastructure/` — Hebcal, Open-Meteo, and localStorage adapters
+- `ui/` — DOM controllers
+- `createApp.js` — composition root / dependency injection
+
+`main.js` wires production adapters and starts the UI.
+
 ## Data Sources
 
 Calendar and zmanim data come from [Hebcal](https://www.hebcal.com/). City lookup uses the [Open-Meteo Geocoding API](https://open-meteo.com/en/docs/geocoding-api).
+
+## Tests
+
+```bash
+npm install
+npm test
+```
