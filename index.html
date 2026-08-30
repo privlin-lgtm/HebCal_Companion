@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://www.hebcal.com https://geocoding-api.open-meteo.com; img-src 'self' data:; style-src 'self'; script-src 'self'" />
     <meta name="description" content="A private, local-first planner for Hebrew dates, Shabbat times, and memorial anniversaries." />
     <title>Or Zarua | Hebrew Calendar Planner</title>
     <link rel="preconnect" href="https://www.hebcal.com" />
@@ -49,8 +50,8 @@
         <div class="converter-layout">
           <article class="panel converter-panel">
             <div class="segmented-control" role="tablist" aria-label="Conversion direction">
-              <button id="gregorian-tab" class="active" role="tab" aria-selected="true" aria-controls="gregorian-panel">Gregorian to Hebrew</button>
-              <button id="hebrew-tab" role="tab" aria-selected="false" aria-controls="hebrew-panel">Hebrew to Gregorian</button>
+              <button id="gregorian-tab" class="active" role="tab" aria-selected="true" aria-controls="gregorian-panel" tabindex="0">Gregorian to Hebrew</button>
+              <button id="hebrew-tab" role="tab" aria-selected="false" aria-controls="hebrew-panel" tabindex="-1">Hebrew to Gregorian</button>
             </div>
 
             <div id="gregorian-panel" role="tabpanel" aria-labelledby="gregorian-tab">
@@ -183,7 +184,12 @@
 
         <div class="remembrance-toolbar">
           <p id="remembrance-summary">No saved remembrances yet.</p>
-          <button id="open-remembrance-dialog" class="button primary" type="button">Add a remembrance <span aria-hidden="true">+</span></button>
+          <div class="remembrance-actions">
+            <button id="export-remembrances" class="button secondary" type="button">Export</button>
+            <button id="import-remembrances" class="button secondary" type="button">Import</button>
+            <input id="import-remembrances-file" type="file" accept="application/json,.json" hidden />
+            <button id="open-remembrance-dialog" class="button primary" type="button">Add a remembrance <span aria-hidden="true">+</span></button>
+          </div>
         </div>
         <div id="remembrance-list" class="remembrance-list" aria-live="polite"></div>
       </section>

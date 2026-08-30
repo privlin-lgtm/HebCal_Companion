@@ -58,7 +58,8 @@ label { display: block; margin-bottom: 8px; font-family: ui-sans-serif, system-u
 input, select { width: 100%; min-height: 47px; border: 1px solid #cbc9bf; border-radius: 7px; padding: 10px 12px; color: var(--ink); background: #fffefc; }
 input:focus, select:focus, button:focus-visible, a:focus-visible { outline: 3px solid rgba(214, 106, 58, .35); outline-offset: 2px; }
 .toggle-row { display: flex; align-items: center; gap: 11px; margin: 17px 0 25px; cursor: pointer; }
-.toggle-row input { position: absolute; opacity: 0; width: 1px; }
+.toggle-row input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.toggle-row:focus-within .switch { outline: 3px solid rgba(214, 106, 58, .35); outline-offset: 2px; }
 .switch { position: relative; flex: 0 0 36px; height: 21px; border-radius: 20px; background: #c7c9c4; transition: background .2s; }
 .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 15px; height: 15px; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .2s; }
 .toggle-row input:checked + .switch { background: var(--orange); }
@@ -121,6 +122,7 @@ code { color: var(--orange-dark); }
 .remembrance-section { padding-top: 0; }
 .remembrance-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 17px; }
 .remembrance-toolbar p { margin: 0; color: var(--muted); font-size: .93rem; }
+.remembrance-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 8px; }
 .remembrance-list { display: grid; gap: 11px; }
 .empty-remembrances { padding: 31px; border: 1px dashed #c9c7bd; border-radius: 12px; color: var(--muted); text-align: center; }
 .remembrance-card { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 11px; background: white; }
@@ -164,7 +166,9 @@ dialog label:not(.toggle-row) { margin-top: 17px; }
   .shabbat-card { padding: 31px 27px; }
   .location-panel { padding: 29px 26px; }
   .remembrance-toolbar { align-items: start; flex-direction: column; }
-  .remembrance-toolbar .button { width: 100%; }
+  .remembrance-actions { width: 100%; }
+  .remembrance-actions .button { flex: 1; }
+  .remembrance-actions .primary { flex: 1 1 100%; }
 }
 @media (max-width: 470px) {
   nav a:nth-child(2) { display: none; }
