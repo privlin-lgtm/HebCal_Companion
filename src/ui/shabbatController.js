@@ -1,4 +1,4 @@
-import { parseDirectLocation } from "../domain/location.js";
+import { parseDirectLocation } from "../domain/location";
 import { $, $$ } from "./dom.js";
 
 export function createShabbatController({ shabbatService, showToast, root = document }) {
@@ -16,7 +16,10 @@ export function createShabbatController({ shabbatService, showToast, root = docu
     $("#parashat", root).textContent = view.parashat;
     $("#candle-time", root).textContent = view.candleTime;
     $("#havdalah-time", root).textContent = view.havdalahTime;
-    $("#shabbat-note", root).textContent = view.note;
+    const note = view.degraded
+      ? `${view.note} Showing last saved times — Hebcal is unreachable right now.`
+      : view.note;
+    $("#shabbat-note", root).textContent = note;
     $("#shabbat-content", root).hidden = false;
   }
 
@@ -33,6 +36,8 @@ export function createShabbatController({ shabbatService, showToast, root = docu
     requestController?.abort();
     requestController = new AbortController();
     const { signal } = requestController;
+    const card = $("#shabbat-card", root);
+    if (card) card.setAttribute("aria-busy", "true");
     $("#shabbat-loading", root).hidden = false;
     $("#shabbat-content", root).hidden = true;
     try {
@@ -44,7 +49,10 @@ export function createShabbatController({ shabbatService, showToast, root = docu
       paintError(error);
       showToast(error.message, true);
     } finally {
-      if (!signal.aborted) $("#shabbat-loading", root).hidden = true;
+      if (!signal.aborted) {
+        $("#shabbat-loading", root).hidden = true;
+        if (card) card.setAttribute("aria-busy", "false");
+      }
     }
   }
 

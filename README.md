@@ -1,52 +1,75 @@
-# HebCal Companion
+# Or Zarua
 
-HebCal Companion is a lightweight browser-based web app for working with Hebrew calendar information in one place. It helps solve a common practical problem: converting between Gregorian and Hebrew dates, checking Shabbat times for a location, and keeping track of remembrances such as yahrzeits or anniversaries without relying on a complex setup or account system.
+**Hebrew Calendar Companion** — a private, local-first planner for Hebrew dates, Shabbat times, and remembrances.
 
-The app is fully client-side and uses free public APIs for live calendar and location data. Saved remembrances stay in the browser's local storage, so personal entries remain on the user's computer.
+[![CI](https://github.com/privlin-lgtm/HebCal_Companion/actions/workflows/ci.yml/badge.svg)](https://github.com/privlin-lgtm/HebCal_Companion/actions/workflows/ci.yml)
+[Live demo](https://privlin-lgtm.github.io/HebCal_Companion/)
+
+![Or Zarua hero and today’s Hebrew date](docs/screenshots/hero.png)
+
+Convert dates, prepare for Shabbat, and keep yahrzeits on your device — no accounts, no server-side memorial data.
+
+![Shabbat times for a selected city](docs/screenshots/shabbat.png)
 
 ## Features
 
-- Convert Gregorian dates to Hebrew dates
-- Convert Hebrew dates to Gregorian dates
-- Support after-sunset conversion behavior
-- View Shabbat candle-lighting and Havdalah times
-- Search Shabbat times by preset city, city and country, US ZIP code, or Hebcal city code
-- Save yahrzeit or anniversary remembrances and calculate the next upcoming secular observance date
+- Convert Gregorian ↔ Hebrew dates (including after sunset)
+- Shabbat candle-lighting and Havdalah by city, ZIP, or Hebcal code
+- Save remembrances locally; compute the next secular observance date
+- Export / import JSON backups
+- Offline-friendly: last successful Hebcal responses are reused when the network fails
+- Content Security Policy, schema-validated storage, abortable in-flight Shabbat requests
 
-## How To Run
+## Quick start
 
-On another computer, clone or download this project folder and open the `HebCal_Companion` directory.
+```bash
+npm install
+npm run dev
+```
 
-Because this is a static web app, there is no build step and no package installation required. You can run it in either of these ways:
+Open the URL Vite prints (typically `http://localhost:5173/HebCal_Companion/`).
 
-1. Open `index.html` directly in a modern browser.
-2. Or serve the folder with any simple static server and open it in the browser.
+Production build:
 
-Example using VS Code Live Server:
+```bash
+npm run build
+npm run preview
+```
 
-1. Install the Live Server extension.
-2. Open the project folder in VS Code.
-3. Right-click `index.html` and choose `Open with Live Server`.
+## Screenshots
+
+| Converter | Remembrances |
+|---|---|
+| ![Date converter](docs/screenshots/converter.png) | ![Saved remembrances](docs/screenshots/remembrances.png) |
 
 ## Architecture
 
-The app follows a small Clean Architecture layout under `src/`:
+Clean Architecture lite under `src/`:
 
-- `domain/` — pure calendar, location, and remembrance rules (no I/O)
-- `application/` — use-case services that depend on injected ports
-- `infrastructure/` — Hebcal, Open-Meteo, and localStorage adapters
+- `domain/` — pure calendar, location, and remembrance rules
+- `application/` — use cases over injected ports
+- `infrastructure/` — Hebcal, Open-Meteo, localStorage, durable response cache
 - `ui/` — DOM controllers
-- `createApp.js` — composition root / dependency injection
+- `createApp.ts` — composition root / DI
 
-`main.js` wires production adapters and starts the UI.
-
-## Data Sources
-
-Calendar and zmanim data come from [Hebcal](https://www.hebcal.com/). City lookup uses the [Open-Meteo Geocoding API](https://open-meteo.com/en/docs/geocoding-api).
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the decision log and remembrance threat model.
 
 ## Tests
 
 ```bash
-npm install
+npm run typecheck
 npm test
+npx playwright install chromium
+npm run test:e2e
 ```
+
+## Data sources & privacy
+
+- Calendar / zmanim: [Hebcal](https://www.hebcal.com/)
+- City lookup: [Open-Meteo Geocoding](https://open-meteo.com/en/docs/geocoding-api)
+- Remembrance **names** stay in your browser
+- Original memorial **dates** are sent to Hebcal only to convert and refresh upcoming observance dates
+
+## License
+
+Personal / portfolio project. Calendar data © respective providers.

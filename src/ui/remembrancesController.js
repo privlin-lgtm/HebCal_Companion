@@ -1,5 +1,5 @@
-import { isoDate } from "../domain/dates.js";
-import { sortByNextIso } from "../domain/remembrance.js";
+import { isoDate } from "../domain/dates";
+import { sortByNextIso } from "../domain/remembrance";
 import { $ } from "./dom.js";
 
 export function createRemembrancesController({ remembranceService, showToast, root = document }) {
@@ -8,6 +8,7 @@ export function createRemembrancesController({ remembranceService, showToast, ro
     const list = $("#remembrance-list", root);
     const summary = $("#remembrance-summary", root);
     list.replaceChildren();
+    list.removeAttribute("role");
     summary.textContent = records.length
       ? `${records.length} saved remembrance${records.length === 1 ? "" : "s"} · calculated from the Hebrew date`
       : "No saved remembrances yet.";
@@ -19,9 +20,11 @@ export function createRemembrancesController({ remembranceService, showToast, ro
       return;
     }
 
+    list.setAttribute("role", "list");
     sortByNextIso(records).forEach((record) => {
       const card = document.createElement("article");
       card.className = "remembrance-card";
+      card.setAttribute("role", "listitem");
       const icon = document.createElement("div");
       icon.className = "remembrance-icon";
       icon.setAttribute("aria-hidden", "true");
@@ -72,8 +75,15 @@ export function createRemembrancesController({ remembranceService, showToast, ro
   function bindDialog() {
     const dialog = $("#remembrance-dialog", root);
     const form = $("#remembrance-form", root);
+    const openButton = $("#open-remembrance-dialog", root);
     $("#remembrance-date", root).value = isoDate();
-    $("#open-remembrance-dialog", root).addEventListener("click", () => dialog.showModal());
+    openButton.addEventListener("click", () => {
+      dialog.showModal();
+      $("#remembrance-name", root).focus();
+    });
+    dialog.addEventListener("close", () => {
+      openButton.focus();
+    });
     [$("#close-dialog", root), $("#cancel-dialog", root)].forEach((button) => {
       button.addEventListener("click", () => dialog.close());
     });

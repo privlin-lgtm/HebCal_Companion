@@ -152,6 +152,11 @@ dialog label:not(.toggle-row) { margin-top: 17px; }
 .toast.show { transform: translateY(0); }
 .toast.error { background: #8c3a31; }
 
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .toast, .switch, .switch::after { transition: none; }
+}
+
 @media (max-width: 760px) {
   .site-header { padding: 0 20px; min-height: 67px; }
   nav { gap: .85rem; }

@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://www.hebcal.com https://geocoding-api.open-meteo.com; img-src 'self' data:; style-src 'self'; script-src 'self'" />
-    <meta name="description" content="A private, local-first planner for Hebrew dates, Shabbat times, and memorial anniversaries." />
-    <title>Or Zarua | Hebrew Calendar Planner</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://www.hebcal.com https://geocoding-api.open-meteo.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'" />
+    <meta name="description" content="Or Zarua — a private, local-first Hebrew calendar companion for date conversion, Shabbat times, and remembrances." />
+    <title>Or Zarua | Hebrew Calendar Companion</title>
     <link rel="preconnect" href="https://www.hebcal.com" />
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -25,7 +25,7 @@
 
     <main id="main-content">
       <section class="hero" id="top" aria-labelledby="hero-title">
-        <p class="eyebrow">Hebrew calendar companion</p>
+        <p class="eyebrow">Or Zarua · Hebrew calendar companion</p>
         <h1 id="hero-title">Keep sacred time<br />close at hand.</h1>
         <p class="hero-copy">A quiet place to convert dates, prepare for Shabbat, and remember those you love.</p>
         <div class="today-card" id="today-card" aria-live="polite">
@@ -155,12 +155,12 @@
             </form>
           </article>
 
-          <article class="shabbat-card" aria-live="polite">
+          <article class="shabbat-card" aria-live="polite" aria-busy="false" id="shabbat-card">
             <div class="shabbat-card-top">
               <p class="eyebrow">Coming Shabbat</p>
               <span id="shabbat-date" class="shabbat-date"></span>
             </div>
-            <div id="shabbat-loading" class="loading-line">Finding local times…</div>
+            <div id="shabbat-loading" class="loading-line" role="status">Finding local times…</div>
             <div id="shabbat-content" hidden>
               <p id="parashat" class="parashat"></p>
               <div class="times-grid">
@@ -191,7 +191,7 @@
             <button id="open-remembrance-dialog" class="button primary" type="button">Add a remembrance <span aria-hidden="true">+</span></button>
           </div>
         </div>
-        <div id="remembrance-list" class="remembrance-list" aria-live="polite"></div>
+        <div id="remembrance-list" class="remembrance-list" aria-live="polite" aria-labelledby="remembrances-title"></div>
       </section>
 
       <section class="about-strip" aria-label="About this planner">
@@ -201,7 +201,7 @@
     </main>
 
     <dialog id="remembrance-dialog" aria-labelledby="dialog-title">
-      <form id="remembrance-form" method="dialog">
+      <form id="remembrance-form" method="dialog" aria-describedby="dialog-error">
         <div class="dialog-heading">
           <div>
             <p class="eyebrow">New remembrance</p>
@@ -231,7 +231,7 @@
       </form>
     </dialog>
 
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="main.js"></script>
+    <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="/main.ts"></script>
   </body>
 </html>

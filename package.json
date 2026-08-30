@@ -1,12 +1,23 @@
 {
-  "name": "hebcal-companion",
+  "name": "or-zarua",
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "screenshots": "playwright test e2e/screenshots.spec.ts --project=chromium"
   },
   "devDependencies": {
-    "vitest": "^3.2.4"
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.4.0",
+    "playwright": "^1.62.1",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.7"
   }
 }

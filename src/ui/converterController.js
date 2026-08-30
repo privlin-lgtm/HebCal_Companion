@@ -1,4 +1,4 @@
-import { formatGregorian, isoDate } from "../domain/dates.js";
+import { formatGregorian, isoDate } from "../domain/dates";
 import { $ } from "./dom.js";
 
 function activateTab(tabs, selected) {
