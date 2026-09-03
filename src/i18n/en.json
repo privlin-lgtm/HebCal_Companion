@@ -143,6 +143,14 @@
     "exit": "Exit kiosk mode",
     "tapToExit": "Tap and hold to exit"
   },
+  "weekly": {
+    "eyebrow": "This week",
+    "title": "Whats coming up",
+    "subtitle": "Holidays, special Shabbatot, and seasonal notes for the week ahead.",
+    "noEvents": "No special observances this week.",
+    "upcoming": "Upcoming",
+    "specialShabbat": "Special Shabbat"
+  },
   "learning": {
     "eyebrow": "Daily learning",
     "dafYomi": "Daf Yomi",

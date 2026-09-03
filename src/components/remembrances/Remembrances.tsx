@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useApp } from "../../context/AppContext";
 import { isoDate } from "../../domain/dates";
 import { sortByNextIso, REMEMBRANCE_TYPES, type Remembrance, type RemembranceType } from "../../domain/remembrance";
+import { generateICal, downloadICal } from "../../domain/ical";
 import { useToast } from "../../hooks/useToast";
 
 export function Remembrances() {
@@ -66,6 +67,12 @@ export function Remembrances() {
     }
   }
 
+  function handleExportICal() {
+    const ics = generateICal(records);
+    downloadICal("or-zarua-remembrances.ics", ics);
+    showToast(records.length ? "iCal exported." : "Exported an empty calendar.");
+  }
+
   function handleExport() {
     const payload = remembranceService.exportBackup();
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -111,6 +118,7 @@ export function Remembrances() {
         </p>
         <div className="flex flex-wrap justify-end gap-2">
           <button onClick={handleExport} className="rounded-lg border border-[#bfc5c0] bg-white px-4 py-2 font-sans text-sm font-bold text-ink hover:bg-warm dark:border-line-dark dark:bg-warm-dark dark:text-ink-dark">{t("remembrances.export")}</button>
+          <button onClick={handleExportICal} className="rounded-lg border border-[#bfc5c0] bg-white px-4 py-2 font-sans text-sm font-bold text-ink hover:bg-warm dark:border-line-dark dark:bg-warm-dark dark:text-ink-dark">iCal</button>
           <button onClick={() => fileRef.current?.click()} className="rounded-lg border border-[#bfc5c0] bg-white px-4 py-2 font-sans text-sm font-bold text-ink hover:bg-warm dark:border-line-dark dark:bg-warm-dark dark:text-ink-dark">{t("remembrances.import")}</button>
           <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={handleImport} />
           <button ref={openBtnRef} onClick={() => setDialogOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-orange px-4 py-2 font-sans text-sm font-bold text-white hover:bg-orange-dark">{t("remembrances.add")} +</button>
