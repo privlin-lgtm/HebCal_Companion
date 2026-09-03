@@ -63,7 +63,7 @@ export function createServices(): AppServices {
     getZmanim: (location, date, options) => localCalendar.getZmanim!(location, date, options),
     getMonthData: (hebrewYear, hebrewMonth, options) => localCalendar.getMonthData!(hebrewYear, hebrewMonth, options),
     getWeeklyEvents: (options) => localCalendar.getWeeklyEvents!(options),
-    getLearning: (date, options) => localCalendar.getLearning!(date, options),
+    getLearning: (date, options) => apiCalendar.getLearning!(date, options),
   };
 
   const geocoder: GeocoderPort = createOpenMeteoGeocoder({ httpJson });

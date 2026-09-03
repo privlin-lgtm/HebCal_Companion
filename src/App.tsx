@@ -14,6 +14,7 @@ import { Remembrances } from "./components/remembrances/Remembrances";
 import { CalendarView } from "./components/calendar/CalendarView";
 import { Zmanim } from "./components/zmanim/Zmanim";
 import { WeeklyPanel } from "./components/weekly/WeeklyPanel";
+import { LearningPanel } from "./components/learning/LearningPanel";
 import { KioskMode, useKioskMode } from "./components/kiosk/KioskMode";
 
 export function App() {

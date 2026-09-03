@@ -2,6 +2,7 @@
 import type { CalendarPort, ConvertParams, ConvertResult, Location, RequestOptions, ShabbatPayload } from "../application/ports";
 import { toHebcalParams } from "../domain/location";
 import type { HttpJson } from "./httpClient";
+import type { LearningView, LearningEntry } from "../domain/learning";
 
 export const HEBCAL_API_ROOT = "https://www.hebcal.com";
 
@@ -33,5 +34,24 @@ export function createHebcalApiCalendar({ httpJson, apiRoot = HEBCAL_API_ROOT, c
   async function getShabbat(location: Location, { signal }: RequestOptions = {}): Promise<ShabbatPayload> {
     return request("/shabbat", toHebcalParams(location), { signal }) as Promise<ShabbatPayload>;
   }
-  return { convert, getShabbat };
+  async function getLearning(date?: string, _options?: RequestOptions): Promise<LearningView> {
+    const d = date ? new Date(date) : new Date();
+    const params = {
+      gy: d.getFullYear(), gm: d.getMonth() + 1, gd: d.getDate(),
+      dafyomi: 1, mishnaYomi: 1,
+    };
+    const data = await request("/hebcal", params, {}) as { items?: Array<{ category?: string; title?: string }> };
+    const entries: LearningEntry[] = [];
+    for (const item of data.items || []) {
+      if (item.category === "dafyomi" && item.title) {
+        entries.push({ track: "dafYomi", labelKey: "learning.dafYomi", description: item.title });
+      }
+      if (item.category === "mishnaYomi" && item.title) {
+        entries.push({ track: "mishnaYomi", labelKey: "learning.mishnaYomi", description: item.title });
+      }
+    }
+    return { date: d.toISOString().slice(0, 10), entries };
+  }
+
+  return { convert, getShabbat, getLearning };
 }
