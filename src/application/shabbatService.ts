@@ -15,7 +15,7 @@ export function createShabbatService({ calendar, geocoder, locationStore, defaul
   async function load(location: Location, fallbackName: string, { signal }: RequestOptions = {}) {
     const data = await calendar.getShabbat(location, { signal });
     const view = projectShabbat(data, fallbackName);
-    locationStore.write(location, view.place);
+    locationStore.write(location, fallbackName);
     return view;
   }
   async function searchAndLoad(city: string, country: string, { signal }: RequestOptions = {}) {

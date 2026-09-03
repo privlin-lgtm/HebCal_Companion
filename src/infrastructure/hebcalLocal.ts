@@ -9,19 +9,23 @@ import type { LearningView } from "../domain/learning";
 import type { MonthData, CalendarDay } from "../domain/calendarView";
 import type { WeeklyView, WeeklyEvent } from "../domain/weeklyView";
 import { clockFromInstant } from "../domain/dates";
+import { lookupGeonameid } from "./cityDatabase";
 
 function toHebcalLocation(loc: Location): HebcalLocation {
   switch (loc.kind) {
     case "coordinates":
       return new HebcalLocation(loc.lat, loc.lng, false, loc.tzid);
-    case "geonameid":
-      return new HebcalLocation(31.78, 35.22, true, "Asia/Jerusalem", "Jerusalem", "IL");
+    case "geonameid": {
+      const city = lookupGeonameid(loc.id);
+      if (!city) throw new Error("Local zmanim is not available for this city. Use city search to resolve coordinates.");
+      return new HebcalLocation(city.lat, city.lng, city.isIsrael, city.tzid, city.name, city.countryCode);
+    }
     case "zip":
-      return new HebcalLocation(40.72, -74.0, false, "America/New_York", "New York", "US");
+      throw new Error("Local zmanim requires coordinates. Use city search to find your location.");
     case "city":
-      return new HebcalLocation(31.78, 35.22, true, "Asia/Jerusalem", "Jerusalem", "IL");
+      throw new Error("Local zmanim requires coordinates. Use city search to find your location.");
     default:
-      return new HebcalLocation(31.78, 35.22, true, "Asia/Jerusalem", "Jerusalem", "IL");
+      throw new Error("Local zmanim requires coordinates. Use city search to find your location.");
   }
 }
 
@@ -190,7 +194,7 @@ export function createHebcalLocalCalendar(): CalendarPort {
     let parashat = "";
     const sedra = HebrewCalendar.getSedra(new HDate(greg.greg2abs(now)).getFullYear(), false);
 
-    for (let i = 0; i <= 7; i++) {
+    for (let i = 0; i < 7; i++) {
       const d = new Date(now);
       d.setDate(d.getDate() + i);
       const abs = greg.greg2abs(d);

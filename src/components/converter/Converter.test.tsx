@@ -1,13 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AppProvider } from "../../context/AppContext";
+import { ToastProvider } from "../../context/ToastContext";
 import { createServices } from "../../composition";
 import { Converter } from "./Converter";
 
 function renderConverter() {
   return render(
     <AppProvider services={createServices()}>
-      <Converter />
+      <ToastProvider>
+        <Converter />
+      </ToastProvider>
     </AppProvider>,
   );
 }

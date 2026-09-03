@@ -1,7 +1,7 @@
 /** Pure calendar policy — no I/O. */
 
 import type { Remembrance } from "./remembrance";
-import { clockFromHebcalItem, formatApiDate, formatGregorian, toIsoDay } from "./dates";
+import { clockFromHebcalItem, formatApiDate, formatGregorian, isoDate, toIsoDay } from "./dates";
 
 export type ConvertParams = {
   gy?: number;
@@ -59,7 +59,7 @@ export async function nextObservance(
   record: Pick<Remembrance, "hm" | "hd">,
   hebrewYear: number,
   convert: (params: ConvertParams) => Promise<Pick<ConvertResult, "gy" | "gm" | "gd">>,
-  today: string = new Date().toISOString().slice(0, 10),
+  today: string = isoDate(),
 ): Promise<ObservanceResult | null> {
   for (let year = hebrewYear; year <= hebrewYear + 2; year += 1) {
     try {
@@ -77,7 +77,7 @@ export async function collectUpcomingUpdates(
   records: Remembrance[],
   hebrewYear: number,
   convert: (params: ConvertParams) => Promise<Pick<ConvertResult, "gy" | "gm" | "gd">>,
-  today: string = new Date().toISOString().slice(0, 10),
+  today: string = isoDate(),
 ): Promise<Map<string, { nextIso: string; nextFormatted: string }>> {
   const pending = records.filter((record) => !record.nextIso || record.nextIso < today);
   const nextDates = await Promise.all(

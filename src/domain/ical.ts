@@ -20,14 +20,14 @@ export function generateICal(records: Remembrance[]): string {
       `${record.type} observance for ${record.name}`,
       `Hebrew date: ${record.hd} ${record.hm} ${record.hy}`,
       record.originalDate ? `Original date: ${record.originalDate}` : "",
-    ].filter(Boolean).join("\\n");
+    ].filter(Boolean).join("\n");
 
     lines.push(
       "BEGIN:VEVENT",
       `UID:${uid}`,
       `DTSTAMP:${now}`,
       `DTSTART;VALUE=DATE:${date}`,
-      `DTEND;VALUE=DATE:${date}`,
+      `DTEND;VALUE=DATE:${nextDay(date)}`,
       `SUMMARY:${escapeICal(summary)}`,
       `DESCRIPTION:${escapeICal(description)}`,
       "BEGIN:VALARM",
@@ -41,6 +41,18 @@ export function generateICal(records: Remembrance[]): string {
 
   lines.push("END:VCALENDAR");
   return lines.join("\r\n");
+}
+
+/** Advance a YYYYMMDD string by one day (DTEND is exclusive for VALUE=DATE events). */
+function nextDay(yyyymmdd: string): string {
+  const y = Number(yyyymmdd.slice(0, 4));
+  const m = Number(yyyymmdd.slice(4, 6));
+  const d = Number(yyyymmdd.slice(6, 8));
+  const dt = new Date(y, m - 1, d + 1);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}${mm}${dd}`;
 }
 
 function escapeICal(text: string): string {
