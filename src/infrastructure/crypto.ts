@@ -11,6 +11,7 @@ const KDF_ITERATIONS = 210_000;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 const ENVELOPE_VERSION = 1;
+const MAX_ITERATIONS = 500_000;
 
 type Envelope = {
   v: number;
@@ -69,6 +70,7 @@ function isEnvelope(value: unknown): value is Envelope {
   if (typeof value !== "object" || value === null) return false;
   const e = value as Partial<Envelope>;
   return typeof e.v === "number"
+    && e.kdf === "PBKDF2-SHA256"
     && typeof e.iter === "number"
     && typeof e.salt === "string"
     && typeof e.iv === "string"
@@ -106,6 +108,9 @@ export async function decryptJson(payload: string, passphrase: string): Promise<
   if (!isEnvelope(parsed)) throw new Error("Synced data is not in a recognised format.");
   if (parsed.v > ENVELOPE_VERSION) {
     throw new Error("This data was saved by a newer version of Or Zarua. Update the app to read it.");
+  }
+  if (parsed.iter > MAX_ITERATIONS) {
+    throw new Error("Synced data was saved with an unusually high encryption cost. Refusing to process for safety.");
   }
   const key = await deriveKey(passphrase, fromBase64(parsed.salt), parsed.iter);
   let plaintext: ArrayBuffer;

@@ -3,9 +3,11 @@ export type HttpJson = (url: string | URL, options?: { signal?: AbortSignal; lab
 
 export function createHttpClient({ fetchImpl = globalThis.fetch.bind(globalThis) }: { fetchImpl?: typeof fetch } = {}): HttpJson {
   return async function httpJson(url, { signal, label = "The service" } = {}) {
+    const timeoutSignal = AbortSignal.timeout(15_000);
+    const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
     let response: Response;
     try {
-      response = await fetchImpl(url, { headers: { Accept: "application/json" }, signal });
+      response = await fetchImpl(url, { headers: { Accept: "application/json" }, signal: combinedSignal });
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") throw error;
       throw new Error(`Could not reach ${label}. Check your connection and try again.`);

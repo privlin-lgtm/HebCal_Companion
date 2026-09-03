@@ -90,6 +90,10 @@ export function Remembrances() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("File is too large. Export files are typically under 100KB.", true);
+      return;
+    }
     try {
       const merged = remembranceService.importBackup(await file.text());
       refresh();
