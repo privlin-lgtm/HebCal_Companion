@@ -13,14 +13,26 @@ import { Shabbat } from "./components/shabbat/Shabbat";
 import { Remembrances } from "./components/remembrances/Remembrances";
 import { CalendarView } from "./components/calendar/CalendarView";
 import { Zmanim } from "./components/zmanim/Zmanim";
+import { KioskMode, useKioskMode } from "./components/kiosk/KioskMode";
 
 export function App() {
   const services = useMemo(() => createServices(), []);
   const { i18n } = useTranslation();
+  const isKiosk = useKioskMode();
 
   useMemo(() => {
     applyLanguage(i18n.language === "he" ? "he" : "en");
   }, [i18n.language]);
+
+  if (isKiosk) {
+    return (
+      <AppProvider services={services}>
+        <LocationProvider>
+          <KioskMode />
+        </LocationProvider>
+      </AppProvider>
+    );
+  }
 
   return (
     <AppProvider services={services}>

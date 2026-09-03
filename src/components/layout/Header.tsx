@@ -26,6 +26,7 @@ export function Header() {
         <a href="#remembrances" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline">{t("nav.remembrances")}</a>
         <a href="#calendar" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline hidden md:inline">{t("nav.calendar")}</a>
         <a href="#zmanim" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline hidden lg:inline">{t("nav.zmanim")}</a>
+        <a href="?kiosk" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline hidden xl:inline">{t("nav.kiosk")}</a>
 
         <button
           onClick={toggle}
