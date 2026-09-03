@@ -5,6 +5,7 @@ import { isoDate } from "../../domain/dates";
 import { sortByNextIso, REMEMBRANCE_TYPES, type Remembrance, type RemembranceType } from "../../domain/remembrance";
 import { generateICal, downloadICal } from "../../domain/ical";
 import { useToast } from "../../hooks/useToast";
+import { SyncPanel } from "../sync/SyncPanel";
 
 export function Remembrances() {
   const { t } = useTranslation();
@@ -124,6 +125,15 @@ export function Remembrances() {
           <button ref={openBtnRef} onClick={() => setDialogOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-orange px-4 py-2 font-sans text-sm font-bold text-white hover:bg-orange-dark">{t("remembrances.add")} +</button>
         </div>
       </div>
+
+      <SyncPanel
+        records={records}
+        onMerged={async () => {
+          refresh();
+          await remembranceService.refreshUpcoming();
+          refresh();
+        }}
+      />
 
       <div className="grid gap-3" aria-live="polite">
         {sorted.length === 0 ? (

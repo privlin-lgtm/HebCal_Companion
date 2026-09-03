@@ -59,7 +59,7 @@ Defined in `src/application/ports.ts`:
 - `RemembranceRepository` — list/save/merge upcoming patches
 - `LocationStore` — last Shabbat location preference
 - `MultiLocationStore` — saved locations (home, travel, community)
-- `SyncPort` — encrypted cross-device sync (signIn, signUp, push, pull)
+- `SyncPort` — encrypted cross-device sync (auth, passphrase unlock/lock, push, pull)
 - `NotificationPort` — schedule/cancel reminders (Web + Capacitor)
 - `Clock` / `IdGenerator` — injectable time and ids for tests
 - `ThemeStore` — light/dark/system theme preference
@@ -70,13 +70,23 @@ Defined in `src/application/ports.ts`:
 |---|---|---|
 | Remembrance names | Readable by anyone with device/browser access | On-device only by default; no sync without explicit account creation; export is explicit user action |
 | Memorial dates | Sent to Hebcal during convert/refresh | Required for next-observance calculation; disclosed in docs; names are not sent |
-| Synced data | Server could read remembrances | Client-side encryption before upload; server only stores ciphertext; encryption key derived from user password (never sent to server) |
+| Synced data | Server could read remembrances | AES-GCM encryption before upload; server only stores ciphertext; key derived by PBKDF2-SHA256 (210,000 iterations) from a passphrase that is separate from the account password, held in memory for the session only, and never transmitted or persisted |
 | Import files | Malicious JSON | Schema validation via zod; reject binary/non-JSON; cap at 500 rows |
 | XSS | Injected HTML in names/events | React's built-in escaping; `textContent` for any direct DOM manipulation |
 | Supply chain | Compromised deps | Lockfile + CI; minimal runtime deps; `@hebcal/core` is the only major runtime dependency for calendar math |
-| API keys | Supabase anon key in client | Anon key is public by design; RLS policies enforce row-level security; encryption is client-side |
+| API keys | Supabase publishable (anon) key in client | Public by design; the real boundary is a single `ALL` RLS policy scoped to `auth.uid() = user_id`; `service_role` and `sb_secret_` keys never enter the bundle |
 
-**Non-goals:** server-side persistence of unencrypted data, end-to-end encryption of the Supabase transport layer (TLS handles transport; client-side encryption handles payload), multi-tenant admin access.
+**Non-goals:** server-side persistence of unencrypted data, end-to-end encryption of the Supabase transport layer (TLS handles transport; client-side encryption handles payload), multi-tenant admin access. Passphrase recovery is also a non-goal — losing it makes the ciphertext unrecoverable, which is the intended consequence of the server holding no key material.
+
+## Sync design
+
+Sync is opt-in and additive. With `VITE_SUPABASE_URL` unset, `SyncPort.isConfigured()` returns false and the UI hides sync entirely, so the app stays fully functional as a static, accountless site.
+
+- **Auth** is Supabase email/password (GoTrue). Sessions persist and refresh automatically; `detectSessionInUrl` is disabled because the app is served from a static subpath.
+- **Encryption** uses a versioned envelope, `{ v, kdf, iter, salt, iv, ct }`, serialized as JSON. A fresh 16-byte salt and 12-byte IV are generated per upload and travel with the ciphertext, so any device holding the passphrase can decrypt without the server storing key material, and KDF cost can be raised later without invalidating existing records.
+- **Key derivation** is PBKDF2-SHA256 at 210,000 iterations producing a 256-bit AES-GCM key. The passphrase lives only in a closure variable for the session; `lock()` clears it.
+- **Conflict handling** is last-write-wins per user, softened by an explicit merge on download: `pull()` returns records that are merged into local state by id, so downloading never silently drops local additions.
+- **Storage shape** is one row per user (`user_id` primary key) holding a single opaque blob. The schema reveals nothing beyond row existence and last-update time, though blob length still leaks a rough record count.
 
 ## Failure modes
 
@@ -134,24 +144,24 @@ Defined in `src/application/ports.ts`:
 - [x] PWA service worker + manifest
 - [x] Capacitor core integration
 
-### Phase 2 — Feature expansion (in progress)
-- [ ] Hebrew calendar month view
-- [ ] Zmanim panel
-- [ ] Notifications (Web + Capacitor local notifications)
-- [ ] Daf Yomi / Mishna Yomi tracker
-- [ ] Expanded remembrance types (Bar/Bat Mitzvah, Hebrew birthday, fast days)
-- [ ] Multi-location support
-- [ ] Kiosk mode
+### Phase 2 — Feature expansion (complete)
+- [x] Hebrew calendar month view
+- [x] Zmanim panel
+- [x] Notifications (Web + Capacitor local notifications)
+- [x] Daf Yomi / Mishna Yomi tracker
+- [x] Expanded remembrance types (Bar/Bat Mitzvah, Hebrew birthday, fast days)
+- [x] Multi-location support
+- [x] Kiosk mode
 
-### Phase 3 — Sync and platform
-- [ ] Supabase integration with client-side E2E encryption
-- [ ] iCal/Google Calendar export
-- [ ] Community holiday guide / weekly panel
+### Phase 3 — Sync and platform (in progress)
+- [x] Supabase integration with client-side encryption
+- [x] iCal/Google Calendar export
+- [x] Community holiday guide / weekly panel
 - [ ] Capacitor native iOS/Android builds
 - [ ] Mobile-first PWA install prompt
 
-### Phase 4 — Polish
-- [ ] Full test suite migration (Vitest + Playwright)
-- [ ] CI workflow update
+### Phase 4 — Polish (in progress)
+- [x] Full test suite migration (Vitest + Playwright)
+- [x] CI workflow update
 - [ ] Performance optimization (code splitting, lazy loading)
 - [ ] Accessibility audit

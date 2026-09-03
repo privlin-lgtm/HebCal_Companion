@@ -1,101 +1,178 @@
 /**
- * Supabase sync adapter with client-side encryption.
- * This is a scaffold — actual Supabase credentials and encryption
- * will be configured when the user sets up a Supabase project.
+ * Supabase sync adapter.
+ *
+ * Records are encrypted in the browser before upload, so the server stores an
+ * opaque blob. The passphrase that unlocks it is held in memory for the session
+ * only and is never transmitted or persisted.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Remembrance, SyncPort } from "../application/ports";
-import { sanitizeRemembrances } from "../domain/remembrance";
+import type { Remembrance, SyncPort, SyncUser } from "../application/ports";
+import { sanitizeRemembrances, type RemembranceInput } from "../domain/remembrance";
+import { decryptJson, encryptJson } from "./crypto";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const TABLE = "remembrances";
 const SYNC_STORAGE_KEY = "or-zarua-last-sync";
 
-/** Simple XOR-based encryption for demo purposes. In production, use Web Crypto API with AES-GCM. */
-function encrypt(data: string, key: string): string {
-  // TODO: Replace with proper AES-GCM encryption using Web Crypto API
-  return btoa(unescape(encodeURIComponent(data)));
+export type SupabaseSyncConfig = {
+  url?: string;
+  anonKey?: string;
+};
+
+function readEnv(): SupabaseSyncConfig {
+  const env = import.meta.env as Record<string, string | undefined>;
+  return { url: env.VITE_SUPABASE_URL, anonKey: env.VITE_SUPABASE_ANON_KEY };
 }
 
-function decrypt(data: string, _key: string): string {
-  // TODO: Replace with proper AES-GCM decryption using Web Crypto API
-  return decodeURIComponent(escape(atob(data)));
+function toSyncUser(user: { id: string; email?: string | null } | null | undefined): SyncUser | null {
+  return user ? { id: user.id, email: user.email ?? null } : null;
 }
 
-export function createSupabaseSync(): SyncPort {
+export function createSupabaseSync(config: SupabaseSyncConfig = readEnv()): SyncPort {
+  const url = config.url?.trim();
+  const anonKey = config.anonKey?.trim();
   let client: SupabaseClient | null = null;
-  let encryptionKey = "";
+  let passphrase = "";
 
-  function getClient(): SupabaseClient | null {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
-    if (!client) client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  function isConfigured(): boolean {
+    return Boolean(url && anonKey);
+  }
+
+  function requireClient(): SupabaseClient {
+    if (!url || !anonKey) {
+      throw new Error("Cross-device sync is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+    }
+    if (!client) {
+      client = createClient(url, anonKey, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+      });
+    }
     return client;
   }
 
-  async function signIn(email: string, password: string): Promise<void> {
-    const c = getClient();
-    if (!c) throw new Error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
-    const { error } = await c.auth.signInWithPassword({ email, password });
+  async function signIn(email: string, password: string): Promise<SyncUser> {
+    const { data, error } = await requireClient().auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
-    encryptionKey = password; // Use password as encryption key (simplified)
+    const user = toSyncUser(data.user);
+    if (!user) throw new Error("Sign-in succeeded but no account was returned.");
+    return user;
   }
 
-  async function signUp(email: string, password: string): Promise<void> {
-    const c = getClient();
-    if (!c) throw new Error("Supabase is not configured.");
-    const { error } = await c.auth.signUp({ email, password });
+  async function signUp(email: string, password: string) {
+    const { data, error } = await requireClient().auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: globalThis.location?.origin },
+    });
     if (error) throw new Error(error.message);
-    encryptionKey = password;
+    // Supabase returns a user with no session when email confirmation is pending.
+    return { user: toSyncUser(data.user), needsConfirmation: !data.session };
   }
 
   async function signOut(): Promise<void> {
-    const c = getClient();
-    if (c) await c.auth.signOut();
-    encryptionKey = "";
+    passphrase = "";
+    if (!isConfigured()) return;
+    const { error } = await requireClient().auth.signOut();
+    if (error) throw new Error(error.message);
   }
 
-  function getUser() {
-    const c = getClient();
-    if (!c) return null;
-    const session = c.auth.getSession();
-    // Sync access — in React this would be async
-    return null; // TODO: implement with useSyncExternalStore or React hook
+  async function getUser(): Promise<SyncUser | null> {
+    if (!isConfigured()) return null;
+    const { data, error } = await requireClient().auth.getSession();
+    if (error) return null;
+    return toSyncUser(data.session?.user);
+  }
+
+  function onAuthChange(listener: (user: SyncUser | null) => void): () => void {
+    if (!isConfigured()) return () => {};
+    const { data } = requireClient().auth.onAuthStateChange((_event, session) => {
+      listener(toSyncUser(session?.user));
+    });
+    return () => data.subscription.unsubscribe();
+  }
+
+  function unlock(value: string): void {
+    const trimmed = value.trim();
+    if (trimmed.length < 8) throw new Error("Use a passphrase of at least 8 characters.");
+    passphrase = trimmed;
+  }
+
+  function lock(): void {
+    passphrase = "";
+  }
+
+  function isUnlocked(): boolean {
+    return passphrase.length > 0;
+  }
+
+  function requireUnlocked(): string {
+    if (!passphrase) throw new Error("Enter your encryption passphrase first.");
+    return passphrase;
+  }
+
+  async function requireUser(): Promise<SyncUser> {
+    const user = await getUser();
+    if (!user) throw new Error("Sign in to sync across devices.");
+    return user;
   }
 
   async function push(remembrances: Remembrance[]): Promise<void> {
-    const c = getClient();
-    if (!c) throw new Error("Supabase is not configured.");
-    const { data: { user } } = await c.auth.getUser();
-    if (!user) throw new Error("Not signed in.");
-    const payload = encrypt(JSON.stringify(remembrances), encryptionKey);
-    const { error } = await c.from("remembrances").upsert({
+    const key = requireUnlocked();
+    const user = await requireUser();
+    const payload = await encryptJson(remembrances, key);
+    const { error } = await requireClient().from(TABLE).upsert({
       user_id: user.id,
       data: payload,
       updated_at: new Date().toISOString(),
     });
     if (error) throw new Error(error.message);
-    try { localStorage.setItem(SYNC_STORAGE_KEY, new Date().toISOString()); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(SYNC_STORAGE_KEY, new Date().toISOString());
+    } catch {
+      /* storage unavailable — last-sync display is cosmetic */
+    }
   }
 
   async function pull(): Promise<Remembrance[] | null> {
-    const c = getClient();
-    if (!c) throw new Error("Supabase is not configured.");
-    const { data: { user } } = await c.auth.getUser();
-    if (!user) throw new Error("Not signed in.");
-    const { data, error } = await c.from("remembrances").select("data").eq("user_id", user.id).single();
-    if (error || !data) return null;
+    const key = requireUnlocked();
+    const user = await requireUser();
+    const { data, error } = await requireClient()
+      .from(TABLE)
+      .select("data")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data?.data) return null;
+    const decrypted = await decryptJson(data.data as string, key);
+    if (!Array.isArray(decrypted)) throw new Error("Synced data is not a remembrance list.");
+    const records = sanitizeRemembrances(decrypted as RemembranceInput[]);
     try {
-      const decrypted = decrypt(data.data as string, encryptionKey);
-      const parsed = JSON.parse(decrypted);
-      return sanitizeRemembrances(parsed);
+      localStorage.setItem(SYNC_STORAGE_KEY, new Date().toISOString());
+    } catch {
+      /* storage unavailable — last-sync display is cosmetic */
+    }
+    return records;
+  }
+
+  function getLastSync(): string | null {
+    try {
+      return localStorage.getItem(SYNC_STORAGE_KEY);
     } catch {
       return null;
     }
   }
 
-  function getLastSync(): string | null {
-    try { return localStorage.getItem(SYNC_STORAGE_KEY); } catch { return null; }
-  }
-
-  return { signIn, signUp, signOut, getUser, push, pull, getLastSync };
+  return {
+    isConfigured,
+    signIn,
+    signUp,
+    signOut,
+    getUser,
+    onAuthChange,
+    unlock,
+    lock,
+    isUnlocked,
+    push,
+    pull,
+    getLastSync,
+  };
 }

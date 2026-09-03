@@ -56,11 +56,21 @@ export type IdGenerator = { next(): string };
 export type Clock = { now(): Date; todayIso(): string };
 export type StorageLike = { getItem(key: string): string | null; setItem(key: string, value: string): void };
 
+export type SyncUser = { id: string; email: string | null };
+
 export type SyncPort = {
-  signIn(email: string, password: string): Promise<void>;
-  signUp(email: string, password: string): Promise<void>;
+  /** False when the build has no Supabase credentials, so the UI can hide sync entirely. */
+  isConfigured(): boolean;
+  signIn(email: string, password: string): Promise<SyncUser>;
+  /** `needsConfirmation` is true when Supabase requires the user to verify their email first. */
+  signUp(email: string, password: string): Promise<{ user: SyncUser | null; needsConfirmation: boolean }>;
   signOut(): Promise<void>;
-  getUser(): { email: string | null } | null;
+  getUser(): Promise<SyncUser | null>;
+  onAuthChange(listener: (user: SyncUser | null) => void): () => void;
+  /** Derives the data key from the passphrase and holds it in memory for this session only. */
+  unlock(passphrase: string): void;
+  lock(): void;
+  isUnlocked(): boolean;
   push(remembrances: Remembrance[]): Promise<void>;
   pull(): Promise<Remembrance[] | null>;
   getLastSync(): string | null;

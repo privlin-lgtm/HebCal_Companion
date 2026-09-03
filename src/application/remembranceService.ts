@@ -11,6 +11,7 @@ export type RemembranceService = {
   refreshUpcoming(hebrewYear?: number): Promise<Remembrance[]>;
   exportBackup(): RemembranceExport;
   importBackup(payload: unknown): ReturnType<typeof mergeImported>;
+  mergeRecords(incoming: Remembrance[]): ReturnType<typeof mergeImported>;
 };
 
 export function createRemembranceService({ calendar, remembrances, ids, clock = { now: () => new Date(), todayIso: () => isoDate() } }: {
@@ -48,5 +49,10 @@ export function createRemembranceService({ calendar, remembrances, ids, clock = 
     remembrances.saveAll(merged.records);
     return merged;
   }
-  return { list, remove, createFromGregorian, updateNotification, refreshUpcoming, exportBackup, importBackup };
+  function mergeRecords(incoming: Remembrance[]) {
+    const merged = mergeImported(remembrances.list(), incoming);
+    remembrances.saveAll(merged.records);
+    return merged;
+  }
+  return { list, remove, createFromGregorian, updateNotification, refreshUpcoming, exportBackup, importBackup, mergeRecords };
 }

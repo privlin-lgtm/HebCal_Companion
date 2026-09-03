@@ -171,7 +171,24 @@
     "syncFailed": "Sync failed: {{error}}",
     "lastSync": "Last synced",
     "never": "Never",
-    "encrypted": "End-to-end encrypted"
+    "encrypted": "End-to-end encrypted",
+    "notConfigured": "Cross-device sync is not configured for this build.",
+    "needAccount": "Need an account?",
+    "haveAccount": "Already have an account?",
+    "confirmEmail": "Check your inbox to confirm your email address, then sign in.",
+    "signedInAs": "Signed in as {{email}}",
+    "passphrase": "Encryption passphrase",
+    "passphraseHint": "Chosen by you and never sent to the server. Use the same passphrase on every device. If you lose it, synced data cannot be recovered.",
+    "unlock": "Unlock sync",
+    "lock": "Lock",
+    "locked": "Enter your passphrase to upload or download.",
+    "unlocked": "Sync unlocked",
+    "upload": "Upload to cloud",
+    "download": "Download from cloud",
+    "uploaded": "Uploaded {{count}} remembrance(s), encrypted.",
+    "downloaded": "Merged {{count}} remembrance(s) from the cloud.",
+    "nothingToDownload": "Nothing saved in the cloud yet.",
+    "working": "Working…"
   },
   "about": {
     "text": "Calendar and zmanim data provided by Hebcal.com. Your remembrances are encrypted and stored only in your browser."

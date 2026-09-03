@@ -11,26 +11,25 @@
 
 - **Date converter** — Gregorian ↔ Hebrew with after-sunset support and local offline conversion via `@hebcal/core`
 - **Shabbat times** — candle-lighting and Havdalah by city, ZIP, or coordinates, with offline degraded cache
+- **Hebrew calendar month view** — grid with parashat, holidays, Omer, and Daf Yomi
+- **Zmanim panel** — daily halachic times (Alot, Misheyakir, Sof Zman Shma/Tfilla, Chatzot, Mincha, Plag, Tzeit)
+- **Daily learning** — Daf Yomi and Mishna Yomi schedule
+- **Weekly guide** — upcoming holidays, special Shabbatot, and seasonal notes
 - **Remembrances** — save yahrzeits, anniversaries, Bar/Bat Mitzvahs, Hebrew birthdays, and fast days locally; compute next secular observance date
-- **Export / import** — JSON backups with schema validation
+- **Multi-location** — save, switch, and set a default among home, travel, and community locations
+- **Encrypted cross-device sync** — optional Supabase sync; records are AES-GCM encrypted in the browser under a passphrase that never leaves the device
+- **Notifications** — yahrzeit reminders via Web Notifications
+- **Kiosk mode** — always-on display for smart displays and mounted tablets (`?kiosk`)
+- **Export / import** — JSON backups with schema validation, plus iCal export with reminder alarms
 - **Offline-first** — local Hebrew date math via `@hebcal/core`; last successful API responses cached for degraded mode
 - **Bilingual** — English and Hebrew with full RTL layout support (i18next)
 - **Dark mode** — system-aware with manual toggle
 - **PWA** — installable, offline app shell via service worker
-- **Privacy** — no accounts required, remembrance names never leave the browser, CSP headers, schema-validated storage
+- **Privacy** — works fully without an account; remembrance names never leave the browser unencrypted; CSP headers and schema-validated storage
 
-### Planned (in progress)
+### Planned
 
-- **Hebrew calendar month view** — grid with parashat, holidays, Omer, Daf Yomi
-- **Zmanim panel** — daily halachic times (Alot, Misheyakir, Sof Zman Shma/Tfilla, Chatzot, Mincha, Plag, Tzeit)
-- **Notifications** — yahrzeit and candle-lighting reminders (Web Notifications + Capacitor local notifications)
-- **Daf Yomi / Mishna Yomi tracker** — daily learning schedule
-- **Multi-location** — save and switch between home, travel, and community locations
-- **Supabase sync** — encrypted cross-device sync with client-side encryption (E2E)
-- **Kiosk mode** — always-on Shabbat/zmanim display for smart displays and mounted tablets
-- **iCal export** — subscribe to yahrzeit and Shabbat times in any calendar app
-- **Community holiday guide** — weekly panel with upcoming holidays, special Shabbatot, seasonal notes
-- **Capacitor** — native iOS/Android apps from the same codebase with push notifications
+- **Capacitor native builds** — iOS/Android apps from the same codebase with local push notifications (bridge is in place, shells not yet published)
 
 ## Tech stack
 
@@ -52,11 +51,45 @@
 ## Quick start
 
 ```bash
-npm install
+npm install --legacy-peer-deps
 npm run dev
 ```
 
 Open the URL Vite prints (typically `http://localhost:5173/HebCal_Companion/`).
+
+> `--legacy-peer-deps` is required because `react-i18next` still declares a peer range that predates the TypeScript version used here.
+
+## Cross-device sync (optional)
+
+The app is fully usable without this. When configured, remembrances can be pushed to and pulled from Supabase, encrypted client-side.
+
+1. Create a Supabase project, then run this once in the SQL editor:
+
+   ```sql
+   create table if not exists public.remembrances (
+     user_id uuid primary key references auth.users(id) on delete cascade,
+     data text not null,
+     updated_at timestamptz not null default now()
+   );
+
+   alter table public.remembrances enable row level security;
+
+   create policy "Users manage own remembrances"
+     on public.remembrances
+     as permissive
+     for all
+     to authenticated
+     using (auth.uid() = user_id)
+     with check (auth.uid() = user_id);
+   ```
+
+   `user_id` must be the primary key: the adapter upserts on it.
+
+2. Copy `.env.example` to `.env.local` and fill in your project URL and publishable (anon) key. Never put a `service_role` or `sb_secret_` key in a client bundle.
+
+3. Restart `npm run dev`. A sync panel appears in the Remembrances section. Sign in, then enter an **encryption passphrase**.
+
+The passphrase is separate from your account password. A 256-bit AES-GCM key is derived from it with PBKDF2-SHA256 (210,000 iterations) and held in memory for the session only, so the server stores nothing but ciphertext. Use the same passphrase on every device. **If you lose it, synced data cannot be recovered.**
 
 Production build:
 
