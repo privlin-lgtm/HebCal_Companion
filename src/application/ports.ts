@@ -1,87 +1,30 @@
 /** Application ports (dependency contracts) and shared domain shapes. */
 
-export type GeonameLocation = { kind: "geonameid"; id: string };
-export type CoordinatesLocation = { kind: "coordinates"; lat: number; lng: number; tzid: string };
-export type ZipLocation = { kind: "zip"; zip: string };
-export type CityLocation = { kind: "city"; code: string };
-export type Location = GeonameLocation | CoordinatesLocation | ZipLocation | CityLocation;
+import type { Location, SavedLocation, CoordinatesLocation } from "../domain/location";
+import type { Remembrance, RemembranceType } from "../domain/remembrance";
+import type { ConvertParams, ConvertResult, ShabbatPayload, ShabbatView, ShabbatItem } from "../domain/calendar";
+import type { ZmanimView } from "../domain/zmanim";
+import type { LearningView } from "../domain/learning";
 
-export type RemembranceType = "Yahrzeit" | "Anniversary";
+export type { Location, SavedLocation, CoordinatesLocation } from "../domain/location";
+export type { Remembrance, RemembranceType } from "../domain/remembrance";
+export type { ConvertParams, ConvertResult, ShabbatPayload, ShabbatView, ShabbatItem } from "../domain/calendar";
+export type { ZmanimView } from "../domain/zmanim";
+export type { LearningView } from "../domain/learning";
 
-export type Remembrance = {
-  id: string;
-  name: string;
-  type: RemembranceType;
-  hy: number;
-  hm: string;
-  hd: number;
-  originalDate?: string | null;
-  nextIso?: string | null;
-  nextFormatted?: string | null;
-};
-
-export type ConvertParams = {
-  gy?: number;
-  gm?: number;
-  gd?: number;
-  hy?: number | string;
-  hm?: string;
-  hd?: number | string;
-  g2h?: number | string;
-  h2g?: number | string;
-  gs?: string | number;
-};
-
-export type ConvertResult = {
-  gy: number;
-  gm: number;
-  gd: number;
-  hy: number;
-  hm: string;
-  hd: number;
-  hebrew?: string;
-  events?: string[];
-};
-
-export type ShabbatItem = {
-  category: string;
-  title?: string;
-  date?: string;
-  memo?: string;
-};
-
-export type ShabbatPayload = {
-  location?: { title?: string; tzid?: string };
-  range?: { start?: string; end?: string };
-  items?: ShabbatItem[];
-  _degraded?: boolean;
-};
-
-export type ShabbatView = {
-  place: string;
-  endsLabel: string;
-  parashat: string;
-  candleTime: string;
-  havdalahTime: string;
-  note: string;
-  degraded?: boolean;
-};
-
-export type RequestOptions = {
-  signal?: AbortSignal;
-};
+export type RequestOptions = { signal?: AbortSignal };
 
 export type CalendarPort = {
   convert(params: ConvertParams, options?: RequestOptions): Promise<ConvertResult>;
   getShabbat(location: Location, options?: RequestOptions): Promise<ShabbatPayload>;
+  getZmanim?(location: Location, date?: string, options?: RequestOptions): Promise<ZmanimView>;
+  getLearning?(date?: string, options?: RequestOptions): Promise<LearningView>;
+  convertLocal?(params: ConvertParams): Promise<ConvertResult>;
+  getHebrewDate?(date: Date, afterSunset?: boolean): Promise<ConvertResult>;
 };
 
 export type GeocoderPort = {
-  searchCity(
-    city: string,
-    country: string,
-    options?: RequestOptions,
-  ): Promise<{ name: string; location: Location }>;
+  searchCity(city: string, country: string, options?: RequestOptions): Promise<{ name: string; location: Location }>;
 };
 
 export type RemembranceRepository = {
@@ -95,16 +38,35 @@ export type LocationStore = {
   write(location: Location, name: string): void;
 };
 
-export type IdGenerator = {
-  next(): string;
+export type MultiLocationStore = {
+  list(): SavedLocation[];
+  add(name: string, location: Location): SavedLocation;
+  remove(id: string): SavedLocation[];
+  setDefault(id: string): SavedLocation[];
+  getDefault(): SavedLocation | null;
 };
 
-export type Clock = {
-  now(): Date;
-  todayIso(): string;
+export type IdGenerator = { next(): string };
+export type Clock = { now(): Date; todayIso(): string };
+export type StorageLike = { getItem(key: string): string | null; setItem(key: string, value: string): void };
+
+export type SyncPort = {
+  signIn(email: string, password: string): Promise<void>;
+  signUp(email: string, password: string): Promise<void>;
+  signOut(): Promise<void>;
+  getUser(): { email: string | null } | null;
+  push(remembrances: Remembrance[]): Promise<void>;
+  pull(): Promise<Remembrance[] | null>;
+  getLastSync(): string | null;
 };
 
-export type StorageLike = {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
+export type NotificationPort = {
+  isSupported(): boolean;
+  requestPermission(): Promise<boolean>;
+  schedule(title: string, body: string, at: Date): Promise<void>;
+  cancel(id: string): Promise<void>;
+  cancelAll(): Promise<void>;
 };
+
+export type Theme = "light" | "dark" | "system";
+export type ThemeStore = { get(): Theme; set(theme: Theme): void; resolved(): "light" | "dark" };

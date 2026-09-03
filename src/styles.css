@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/* Dark mode: class-based so we can toggle via JS (also responds to system preference) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* RTL support: Tailwind v4 handles most logical properties automatically,
+   but we add a few manual overrides for complex cases. */
+@theme {
+  --color-ink: #24333a;
+  --color-muted: #63727a;
+  --color-paper: #faf8f3;
+  --color-warm: #f1eee5;
+  --color-orange: #d66a3a;
+  --color-orange-dark: #ad4e2a;
+  --color-yellow: #f1bb58;
+  --color-sage: #a9bfac;
+  --color-line: #dedbd1;
+  --color-night: #263b43;
+
+  /* Dark mode palette */
+  --color-ink-dark: #e8e4d8;
+  --color-muted-dark: #9aa8af;
+  --color-paper-dark: #1a2a2e;
+  --color-warm-dark: #243438;
+  --color-line-dark: #3a4a4e;
+
+  --font-serif: Georgia, "Times New Roman", serif;
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Base styles */
+body {
+  @apply bg-paper text-ink antialiased;
+  font-family: var(--font-serif);
+}
+
+.dark body {
+  @apply bg-paper-dark text-ink-dark;
+}
+
+/* RTL: flip physical spacing utilities when needed */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* Smooth scroll for anchor navigation */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
+
+/* Toast animation */
+@keyframes toast-in {
+  from {
+    transform: translateY(130%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.toast-enter {
+  animation: toast-in 0.25s ease forwards;
+}
+
+/* Kiosk mode: prevent overscroll, hide UI chrome */
+.kiosk-mode {
+  @apply h-screen w-screen overflow-hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}

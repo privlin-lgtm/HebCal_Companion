@@ -1,5 +1,3 @@
-import type { Remembrance, RemembranceType } from "../application/ports";
-
 /** Remembrance entity rules — no I/O. */
 
 export const HEBREW_MONTHS = Object.freeze([
@@ -10,13 +8,45 @@ export const HEBREW_MONTHS = Object.freeze([
 
 export type HebrewMonth = (typeof HEBREW_MONTHS)[number];
 
-export const MAX_REMEMBRANCES = 200;
+export const MAX_REMEMBRANCES = 500;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function isIsoDate(value: unknown): value is string {
   return typeof value === "string" && ISO_DATE.test(value);
 }
+
+/** Expanded remembrance types. */
+export type RemembranceType =
+  | "Yahrzeit"
+  | "Anniversary"
+  | "BarMitzvah"
+  | "BatMitzvah"
+  | "HebrewBirthday"
+  | "FastDay";
+
+export const REMEMBRANCE_TYPES: RemembranceType[] = [
+  "Yahrzeit",
+  "Anniversary",
+  "BarMitzvah",
+  "BatMitzvah",
+  "HebrewBirthday",
+  "FastDay",
+];
+
+export type Remembrance = {
+  id: string;
+  name: string;
+  type: RemembranceType;
+  hy: number;
+  hm: string;
+  hd: number;
+  originalDate?: string | null;
+  nextIso?: string | null;
+  nextFormatted?: string | null;
+  notifyEnabled?: boolean;
+  notifyDaysBefore?: number;
+};
 
 export type RemembranceInput = {
   id?: unknown;
@@ -28,6 +58,8 @@ export type RemembranceInput = {
   originalDate?: unknown;
   nextIso?: unknown;
   nextFormatted?: unknown;
+  notifyEnabled?: unknown;
+  notifyDaysBefore?: unknown;
 };
 
 export function coerceRemembrance(row: RemembranceInput | null | undefined): Remembrance | null {
@@ -42,6 +74,8 @@ export function coerceRemembrance(row: RemembranceInput | null | undefined): Rem
     originalDate: row.originalDate as string | null | undefined,
     nextIso: row.nextIso as string | null | undefined,
     nextFormatted: row.nextFormatted as string | null | undefined,
+    notifyEnabled: typeof row.notifyEnabled === "boolean" ? row.notifyEnabled : false,
+    notifyDaysBefore: typeof row.notifyDaysBefore === "number" ? row.notifyDaysBefore : 1,
   };
 }
 
@@ -54,7 +88,7 @@ export function isRemembrance(row: Remembrance | null | undefined): row is Remem
     && typeof row.name === "string"
     && row.name.length > 0
     && row.name.length <= 80
-    && (row.type === "Yahrzeit" || row.type === "Anniversary")
+    && REMEMBRANCE_TYPES.includes(row.type)
     && Number.isInteger(row.hy)
     && row.hy > 0
     && (HEBREW_MONTHS as readonly string[]).includes(row.hm)
@@ -77,20 +111,22 @@ export function assertWritableRemembrances(rows: RemembranceInput[]): Remembranc
     throw new Error("A remembrance could not be saved because it is missing required fields.");
   }
   if (coerced.length > MAX_REMEMBRANCES) {
-    throw new Error(`This browser can keep up to ${MAX_REMEMBRANCES} remembrances. Export and remove a few.`);
+    throw new Error(
+      `This browser can keep up to ${MAX_REMEMBRANCES} remembrances. Export and remove a few.`,
+    );
   }
   return coerced as Remembrance[];
 }
 
 export type RemembranceExport = {
-  version: 1;
+  version: 2;
   exportedAt: string;
   remembrances: Remembrance[];
 };
 
 export function serializeExport(records: RemembranceInput[], exportedAt = new Date().toISOString()): RemembranceExport {
   return {
-    version: 1,
+    version: 2,
     exportedAt,
     remembrances: sanitizeRemembrances(records),
   };

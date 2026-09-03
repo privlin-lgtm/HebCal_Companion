@@ -1,16 +1,65 @@
-import type { ConvertParams, ConvertResult, Remembrance, ShabbatPayload, ShabbatView } from "../application/ports";
-import { clockFromHebcalItem, formatApiDate, formatGregorian, isoDate, toIsoDay } from "./dates";
+/** Pure calendar policy — no I/O. */
+
+import type { Remembrance } from "./remembrance";
+import { clockFromHebcalItem, formatApiDate, formatGregorian, toIsoDay } from "./dates";
+
+export type ConvertParams = {
+  gy?: number;
+  gm?: number;
+  gd?: number;
+  hy?: number | string;
+  hm?: string;
+  hd?: number | string;
+  g2h?: number | string;
+  h2g?: number | string;
+  gs?: string | number;
+};
+
+export type ConvertResult = {
+  gy: number;
+  gm: number;
+  gd: number;
+  hy: number;
+  hm: string;
+  hd: number;
+  hebrew?: string;
+  events?: string[];
+};
+
+export type ShabbatItem = {
+  category: string;
+  title?: string;
+  date?: string;
+  memo?: string;
+};
+
+export type ShabbatPayload = {
+  location?: { title?: string; tzid?: string };
+  range?: { start?: string; end?: string };
+  items?: ShabbatItem[];
+  _degraded?: boolean;
+};
+
+export type ShabbatView = {
+  place: string;
+  endsLabel: string;
+  parashat: string;
+  candleTime: string;
+  havdalahTime: string;
+  note: string;
+  degraded?: boolean;
+};
 
 export type ObservanceResult = { iso: string; formatted: string };
 
 /**
- * Pure calendar policy: walk Hebrew years until a secular date is on/after today.
+ * Walk Hebrew years until a secular date is on/after today.
  */
 export async function nextObservance(
   record: Pick<Remembrance, "hm" | "hd">,
   hebrewYear: number,
   convert: (params: ConvertParams) => Promise<Pick<ConvertResult, "gy" | "gm" | "gd">>,
-  today: string = isoDate(),
+  today: string = new Date().toISOString().slice(0, 10),
 ): Promise<ObservanceResult | null> {
   for (let year = hebrewYear; year <= hebrewYear + 2; year += 1) {
     try {
@@ -28,7 +77,7 @@ export async function collectUpcomingUpdates(
   records: Remembrance[],
   hebrewYear: number,
   convert: (params: ConvertParams) => Promise<Pick<ConvertResult, "gy" | "gm" | "gd">>,
-  today: string = isoDate(),
+  today: string = new Date().toISOString().slice(0, 10),
 ): Promise<Map<string, { nextIso: string; nextFormatted: string }>> {
   const pending = records.filter((record) => !record.nextIso || record.nextIso < today);
   const nextDates = await Promise.all(

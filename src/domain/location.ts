@@ -1,6 +1,11 @@
-import type { CityLocation, CoordinatesLocation, GeonameLocation, Location, ZipLocation } from "../application/ports";
-
 /** Location value object — no I/O. */
+
+export type GeonameLocation = { kind: "geonameid"; id: string };
+export type CoordinatesLocation = { kind: "coordinates"; lat: number; lng: number; tzid: string };
+export type ZipLocation = { kind: "zip"; zip: string };
+export type CityLocation = { kind: "city"; code: string };
+
+export type Location = GeonameLocation | CoordinatesLocation | ZipLocation | CityLocation;
 
 export const DEFAULT_LOCATION: GeonameLocation = Object.freeze({ kind: "geonameid", id: "281184" });
 export const DEFAULT_LOCATION_NAME = "Jerusalem, Israel";
@@ -55,3 +60,28 @@ export function parseDirectLocation(value: string | null | undefined): ZipLocati
 export function formatGeocodeName(parts: Array<string | null | undefined>): string {
   return parts.filter((part, index, values) => part && values.indexOf(part) === index).join(", ");
 }
+
+export function locationKey(location: Location): string {
+  switch (location.kind) {
+    case "geonameid":
+      return `geonameid:${location.id}`;
+    case "coordinates":
+      return `coordinates:${location.lat},${location.lng},${location.tzid}`;
+    case "zip":
+      return `zip:${location.zip}`;
+    case "city":
+      return `city:${location.code}`;
+    default: {
+      const _exhaustive: never = location;
+      return String(_exhaustive);
+    }
+  }
+}
+
+/** Saved location with a user-chosen name. */
+export type SavedLocation = {
+  id: string;
+  name: string;
+  location: Location;
+  isDefault?: boolean;
+};

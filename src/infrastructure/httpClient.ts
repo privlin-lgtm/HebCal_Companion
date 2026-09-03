@@ -1,17 +1,7 @@
-/**
- * Shared JSON HTTP client. Inject `fetchImpl` for tests / alternate runtimes.
- */
+/** Shared JSON HTTP client. Inject `fetchImpl` for tests / alternate runtimes. */
+export type HttpJson = (url: string | URL, options?: { signal?: AbortSignal; label?: string }) => Promise<unknown>;
 
-export type HttpJson = (
-  url: string | URL,
-  options?: { signal?: AbortSignal; label?: string },
-) => Promise<unknown>;
-
-export function createHttpClient({
-  fetchImpl = globalThis.fetch.bind(globalThis),
-}: {
-  fetchImpl?: typeof fetch;
-} = {}): HttpJson {
+export function createHttpClient({ fetchImpl = globalThis.fetch.bind(globalThis) }: { fetchImpl?: typeof fetch } = {}): HttpJson {
   return async function httpJson(url, { signal, label = "The service" } = {}) {
     let response: Response;
     try {
@@ -21,9 +11,7 @@ export function createHttpClient({
       throw new Error(`Could not reach ${label}. Check your connection and try again.`);
     }
     if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error(`${label} is temporarily busy. Please wait a moment and try again.`);
-      }
+      if (response.status === 429) throw new Error(`${label} is temporarily busy. Please wait a moment and try again.`);
       throw new Error(`${label} could not complete this request (${response.status}).`);
     }
     try {
