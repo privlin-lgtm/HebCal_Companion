@@ -73,6 +73,15 @@ export async function nextObservance(
   return null;
 }
 
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += limit) {
+      const batch = items.slice(i, i + limit);
+      results.push(...await Promise.all(batch.map(fn)));
+    }
+    return results;
+  }
+
 export async function collectUpcomingUpdates(
   records: Remembrance[],
   hebrewYear: number,
@@ -80,9 +89,7 @@ export async function collectUpcomingUpdates(
   today: string = isoDate(),
 ): Promise<Map<string, { nextIso: string; nextFormatted: string }>> {
   const pending = records.filter((record) => !record.nextIso || record.nextIso < today);
-  const nextDates = await Promise.all(
-    pending.map((record) => nextObservance(record, hebrewYear, convert, today)),
-  );
+  const nextDates = await mapWithConcurrency(pending, 10, (record) => nextObservance(record, hebrewYear, convert, today));
   const updates = new Map<string, { nextIso: string; nextFormatted: string }>();
   pending.forEach((record, index) => {
     const next = nextDates[index];

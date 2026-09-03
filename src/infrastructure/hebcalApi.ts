@@ -25,6 +25,7 @@ export function createHebcalApiCalendar({ httpJson, apiRoot = HEBCAL_API_ROOT, c
   async function convert(params: ConvertParams, { signal }: RequestOptions = {}): Promise<ConvertResult> {
     const key = converterCacheKey(params);
     if (cache.has(key)) return cache.get(key)!;
+    if (cache.size > 200) cache.clear();
     const pending = request("/converter", params as Record<string, string | number | boolean | null | undefined>, { signal })
       .then((data) => data as ConvertResult)
       .catch((error) => { cache.delete(key); throw error; });

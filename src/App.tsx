@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { createServices } from "./composition";
 import { AppProvider } from "./context/AppContext";
@@ -12,12 +12,13 @@ import { ToastContainer } from "./components/layout/ToastContainer";
 import { Converter } from "./components/converter/Converter";
 import { Shabbat } from "./components/shabbat/Shabbat";
 import { Remembrances } from "./components/remembrances/Remembrances";
-import { CalendarView } from "./components/calendar/CalendarView";
-import { Zmanim } from "./components/zmanim/Zmanim";
-import { WeeklyPanel } from "./components/weekly/WeeklyPanel";
-import { LearningPanel } from "./components/learning/LearningPanel";
 import { KioskMode, useKioskMode } from "./components/kiosk/KioskMode";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+
+const CalendarView = lazy(() => import("./components/calendar/CalendarView").then(m => ({ default: m.CalendarView })));
+const Zmanim = lazy(() => import("./components/zmanim/Zmanim").then(m => ({ default: m.Zmanim })));
+const WeeklyPanel = lazy(() => import("./components/weekly/WeeklyPanel").then(m => ({ default: m.WeeklyPanel })));
+const LearningPanel = lazy(() => import("./components/learning/LearningPanel").then(m => ({ default: m.LearningPanel })));
 
 export function App() {
   const services = useMemo(() => createServices(), []);
@@ -53,11 +54,11 @@ export function App() {
             <Hero />
             <ErrorBoundary><Converter /></ErrorBoundary>
             <ErrorBoundary><Shabbat /></ErrorBoundary>
-            <ErrorBoundary><CalendarView /></ErrorBoundary>
-            <ErrorBoundary><Zmanim /></ErrorBoundary>
+            <ErrorBoundary><Suspense fallback={<div className="py-12 text-center text-sm text-muted">Loading…</div>}><CalendarView /></Suspense></ErrorBoundary>
+            <ErrorBoundary><Suspense fallback={<div className="py-12 text-center text-sm text-muted">Loading…</div>}><Zmanim /></Suspense></ErrorBoundary>
             <ErrorBoundary><Remembrances /></ErrorBoundary>
-            <ErrorBoundary><WeeklyPanel /></ErrorBoundary>
-            <ErrorBoundary><LearningPanel /></ErrorBoundary>
+            <ErrorBoundary><Suspense fallback={<div className="py-12 text-center text-sm text-muted">Loading…</div>}><WeeklyPanel /></Suspense></ErrorBoundary>
+            <ErrorBoundary><Suspense fallback={null}><LearningPanel /></Suspense></ErrorBoundary>
             <AboutStrip />
           </main>
           <ToastContainer />
