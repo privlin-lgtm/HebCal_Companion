@@ -13,6 +13,7 @@ import { Shabbat } from "./components/shabbat/Shabbat";
 import { Remembrances } from "./components/remembrances/Remembrances";
 import { CalendarView } from "./components/calendar/CalendarView";
 import { Zmanim } from "./components/zmanim/Zmanim";
+import { WeeklyPanel } from "./components/weekly/WeeklyPanel";
 import { KioskMode, useKioskMode } from "./components/kiosk/KioskMode";
 
 export function App() {

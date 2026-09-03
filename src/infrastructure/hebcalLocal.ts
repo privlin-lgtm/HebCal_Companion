@@ -7,6 +7,7 @@ import type { CalendarPort, ConvertParams, ConvertResult, Location, RequestOptio
 import type { ZmanimView, ZmanEntry } from "../domain/zmanim";
 import type { LearningView } from "../domain/learning";
 import type { MonthData, CalendarDay } from "../domain/calendarView";
+import type { WeeklyView, WeeklyEvent } from "../domain/weeklyView";
 import { clockFromInstant } from "../domain/dates";
 
 function toHebcalLocation(loc: Location): HebcalLocation {
@@ -179,5 +180,53 @@ export function createHebcalLocalCalendar(): CalendarPort {
     };
   }
 
-  return { convert, convertLocal, getHebrewDate, getShabbat, getZmanim, getLearning, getMonthData };
+  async function getWeeklyEvents(_options?: RequestOptions): Promise<WeeklyView> {
+    const now = new Date();
+    const events: WeeklyEvent[] = [];
+    const weekStart = new Date(now);
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    let parashat = "";
+    const sedra = HebrewCalendar.getSedra(new HDate(greg.greg2abs(now)).getFullYear(), false);
+
+    for (let i = 0; i <= 7; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + i);
+      const abs = greg.greg2abs(d);
+      const hd = new HDate(abs);
+      const holidays = getHolidaysOnDate(hd) || [];
+
+      for (const h of holidays) {
+        const desc = h.getDesc();
+        const flags = h.getFlags();
+        let category: WeeklyEvent["category"] = "holiday";
+        if (flags & 128) category = "roshChodesh";
+        else if (flags & 256 || flags & 16384) category = "fast";
+        else if (flags & 512) category = "specialShabbat";
+        else if (flags & 4096) category = "omer";
+
+        events.push({
+          date: d.toISOString().slice(0, 10),
+          hebrewDate: hd.renderGematriya(),
+          title: desc,
+          category,
+        });
+      }
+
+      if (d.getDay() === 6 && !parashat) {
+        const lookup = sedra.lookup(abs);
+        if (lookup) parashat = `Parashat ${lookup.parsha.join(" ")}`;
+      }
+    }
+
+    return {
+      events: events.sort((a, b) => a.date.localeCompare(b.date)),
+      parashat: parashat || "Shabbat",
+      weekStart: weekStart.toISOString().slice(0, 10),
+      weekEnd: weekEnd.toISOString().slice(0, 10),
+    };
+  }
+
+  return { convert, convertLocal, getHebrewDate, getShabbat, getZmanim, getLearning, getMonthData, getWeeklyEvents };
 }

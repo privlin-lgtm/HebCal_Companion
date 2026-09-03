@@ -24,6 +24,7 @@ export function Header() {
         <a href="#converter" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline">{t("nav.converter")}</a>
         <a href="#shabbat" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline hidden sm:inline">{t("nav.shabbat")}</a>
         <a href="#remembrances" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline">{t("nav.remembrances")}</a>
+        <a href="#weekly" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline hidden sm:inline">{t("weekly.eyebrow")}</a>
         <a href="#calendar" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline hidden md:inline">{t("nav.calendar")}</a>
         <a href="#zmanim" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline hidden lg:inline">{t("nav.zmanim")}</a>
         <a href="?kiosk" className="text-sm text-muted no-underline hover:text-orange-dark hover:underline hidden xl:inline">{t("nav.kiosk")}</a>
