@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "../../context/AppContext";
 import { useLocation } from "../../context/LocationContext";
-import { parseDirectLocation, DEFAULT_LOCATION, DEFAULT_LOCATION_NAME, type Location } from "../../domain/location";
+import { parseDirectLocation, DEFAULT_LOCATION_NAME, type Location } from "../../domain/location";
 import { useToast } from "../../hooks/useToast";
 import type { ShabbatView } from "../../application/ports";
 
@@ -86,12 +86,12 @@ export function Shabbat() {
     const co = country.trim();
     const direct = directLocation.trim();
     if (c || co) {
-      if (!c || !co) { showToast("Enter both a city and country to search.", true); return; }
+      if (!c || !co) { showToast(t("shabbat.enterBoth"), true); return; }
       setActiveChip(null);
       searchAndLoad(c, co);
       return;
     }
-    if (!direct) { showToast("Enter a city and country, a five-digit US ZIP, or a Hebcal city code.", true); return; }
+    if (!direct) { showToast(t("shabbat.enterBoth"), true); return; }
     const loc = parseDirectLocation(direct);
     setActiveChip(null);
     if (loc) load(loc, direct);
@@ -135,8 +135,8 @@ export function Shabbat() {
           {savedLocations.length > 0 && (
             <div className="mb-6">
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-widest text-muted">Saved</span>
-                <button onClick={() => { saveCurrentLocation(); showToast("Location saved."); }} className="text-xs font-bold text-orange hover:text-orange-dark">+ Save current</button>
+                <span className="text-xs font-bold uppercase tracking-widest text-muted">{t("shabbat.saved")}</span>
+                <button onClick={() => { saveCurrentLocation(); showToast(t("shabbat.locationSaved")); }} className="text-xs font-bold text-orange hover:text-orange-dark">{t("shabbat.saveCurrent")}</button>
               </div>
               <div className="flex flex-wrap gap-2">
                 {savedLocations.map((saved) => (
@@ -148,15 +148,15 @@ export function Shabbat() {
                       {saved.isDefault ? "\u2605 " : ""}{saved.name}
                     </button>
                     <button
-                      onClick={() => { setDefaultLocation(saved.id); showToast("Default set."); }}
+                      onClick={() => { setDefaultLocation(saved.id); showToast(t("shabbat.defaultSet")); }}
                       className="text-xs text-muted hover:text-orange"
-                      aria-label="Set as default"
+                      aria-label={t("shabbat.setDefault")}
                       title="Set as default"
                     >{"\u2605"}</button>
                     <button
-                      onClick={() => { removeSavedLocation(saved.id); showToast("Location removed."); }}
+                      onClick={() => { removeSavedLocation(saved.id); showToast(t("shabbat.locationRemoved")); }}
                       className="text-xs text-[#8c4741] hover:text-[#722d27]"
-                      aria-label="Remove location"
+                      aria-label={t("shabbat.removeLocation")}
                     >{"\u00d7"}</button>
                   </div>
                 ))}
@@ -166,7 +166,7 @@ export function Shabbat() {
 
           {savedLocations.length === 0 && view?.place && (
             <div className="mb-6">
-              <button onClick={() => { saveCurrentLocation(); showToast("Location saved."); }} className="text-xs font-bold text-orange hover:text-orange-dark">+ Save this location</button>
+              <button onClick={() => { saveCurrentLocation(); showToast(t("shabbat.locationSaved")); }} className="text-xs font-bold text-orange hover:text-orange-dark">+ Save this location</button>
             </div>
           )}
 

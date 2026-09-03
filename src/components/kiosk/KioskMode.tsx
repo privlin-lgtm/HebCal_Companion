@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useApp } from "../../context/AppContext";
 import { useLocation } from "../../context/LocationContext";
 import { isKioskMode, exitKioskMode } from "../../infrastructure/capacitorBridge";
-import { formatGregorian, clockFromInstant } from "../../domain/dates";
+import { formatGregorian } from "../../domain/dates";
 import type { ShabbatView, ConvertResult } from "../../application/ports";
 import type { ZmanEntry } from "../../domain/zmanim";
 import { sortZmanim } from "../../domain/zmanim";

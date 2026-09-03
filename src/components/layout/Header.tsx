@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import { useApp } from "../../context/AppContext";
 import { useTheme } from "../../hooks/useTheme";
 import { applyLanguage, type Language } from "../../i18n/config";
-import { cn } from "../../lib/utils";
 
 export function Header() {
   const { t, i18n } = useTranslation();

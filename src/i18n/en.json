@@ -62,7 +62,15 @@
     "havdalah": "Havdalah",
     "error": "Unable to load Shabbat times",
     "degradedNote": "Showing last saved times — Hebcal is unreachable right now.",
-    "parashat": "Parashat"
+    "parashat": "Parashat",
+    "saved": "Saved",
+    "saveCurrent": "+ Save current",
+    "enterBoth": "Enter both a city and country to search.",
+    "locationSaved": "Location saved.",
+    "defaultSet": "Default set.",
+    "locationRemoved": "Location removed.",
+    "setDefault": "Set as default",
+    "removeLocation": "Remove location"
   },
   "remembrances": {
     "eyebrow": "03 / Remembrances",
@@ -85,7 +93,9 @@
     "skipped": "{{count}} already saved.",
     "deleteLabel": "Delete {{name}}",
     "enableNotifications": "Notify me before this date",
-    "notificationsEnabled": "Notification set for this date"
+    "notificationsEnabled": "Notification set for this date",
+    "icalExported": "iCal exported.",
+    "icalExportedEmpty": "Exported an empty calendar."
   },
   "dialog": {
     "eyebrow": "New remembrance",

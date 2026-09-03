@@ -62,7 +62,15 @@
     "havdalah": "הבדלה",
     "error": "לא ניתן לטעון זמני שבת",
     "degradedNote": "מציג את הזמנים השמורים האחרונים — Hebcal אינו זמין כעת.",
-    "parashat": "פרשת"
+    "parashat": "פרשת",
+    "saved": "נשמר",
+    "saveCurrent": "+ שמור מיקום נוכחי",
+    "enterBoth": "הזן גם עיר וגם מדינה כדי לחפש.",
+    "locationSaved": "המיקום נשמר.",
+    "defaultSet": "הוגדר כברירת מחדל.",
+    "locationRemoved": "המיקום הוסר.",
+    "setDefault": "הגדר כברירת מחדל",
+    "removeLocation": "הסר מיקום"
   },
   "remembrances": {
     "eyebrow": "03 / מזכרות",
@@ -85,7 +93,9 @@
     "skipped": "{{count}} כבר נשמרו.",
     "deleteLabel": "מחק {{name}}",
     "enableNotifications": "התרא לי לפני תאריך זה",
-    "notificationsEnabled": "הוגדרה התראה לתאריך זה"
+    "notificationsEnabled": "הוגדרה התראה לתאריך זה",
+    "icalExported": "iCal יוצא.",
+    "icalExportedEmpty": "יוצא לוח שנה ריק."
   },
   "dialog": {
     "eyebrow": "מזכרת חדשה",

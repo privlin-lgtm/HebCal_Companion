@@ -71,7 +71,7 @@ export function Remembrances() {
   function handleExportICal() {
     const ics = generateICal(records);
     downloadICal("or-zarua-remembrances.ics", ics);
-    showToast(records.length ? "iCal exported." : "Exported an empty calendar.");
+    showToast(records.length ? t("remembrances.icalExported") : t("remembrances.icalExportedEmpty"));
   }
 
   function handleExport() {
