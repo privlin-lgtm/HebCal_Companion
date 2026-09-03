@@ -6,6 +6,7 @@ import { HDate, HebrewCalendar, Zmanim, Location as HebcalLocation, getHolidaysO
 import type { CalendarPort, ConvertParams, ConvertResult, Location, RequestOptions, ShabbatPayload, ShabbatItem } from "../application/ports";
 import type { ZmanimView, ZmanEntry } from "../domain/zmanim";
 import type { LearningView } from "../domain/learning";
+import type { MonthData, CalendarDay } from "../domain/calendarView";
 import { clockFromInstant } from "../domain/dates";
 
 function toHebcalLocation(loc: Location): HebcalLocation {
@@ -117,5 +118,66 @@ export function createHebcalLocalCalendar(): CalendarPort {
     return { date: _date || new Date().toISOString().slice(0, 10), entries: [] };
   }
 
-  return { convert, convertLocal, getHebrewDate, getShabbat, getZmanim, getLearning };
+  async function getMonthData(hebrewYear: number, hebrewMonth: number, _options?: RequestOptions): Promise<MonthData> {
+    // hebrewMonth is 1-based from Tishrei (Tishrei=1)
+    // @hebcal/core uses different month numbering — Nisan=1, ... Elul=13/14
+    // We need to map our Tishrei-based month to @hebcal/core's Nisan-based month
+    const monthNames = ["Tishrei", "Cheshvan", "Kislev", "Tevet", "Sh'vat", "Adar", "Adar I", "Adar II", "Nisan", "Iyyar", "Sivan", "Tamuz", "Av", "Elul"];
+    const monthName = monthNames[hebrewMonth - 1] || "Tishrei";
+    const isLeap = HDate.isLeapYear(hebrewYear);
+    // For non-leap years, Adar I and Adar II don't exist — use Adar
+    let actualMonth = monthName;
+    if (!isLeap && (monthName === "Adar I" || monthName === "Adar II")) actualMonth = "Adar";
+
+    const daysInMonth = HDate.daysInMonth(hebrewYear, HDate.monthFromName(actualMonth as never));
+    const today = new Date();
+    const todayAbs = greg.greg2abs(today);
+    const sedra = HebrewCalendar.getSedra(hebrewYear, false);
+
+    const days: CalendarDay[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const hd = new HDate(day, actualMonth as never, hebrewYear);
+      const g = hd.greg();
+      const abs = hd.abs();
+      const dow = g.getDay();
+      const isShabbat = dow === 6;
+      const holidays = (getHolidaysOnDate(hd) || []).map((h) => h.getDesc());
+      const parashat = isShabbat ? (() => {
+        const lookup = sedra.lookup(abs);
+        return lookup ? `Parashat ${lookup.parsha.join(" ")}` : undefined;
+      })() : undefined;
+      days.push({
+        hebrewDay: day,
+        hebrewMonth: actualMonth,
+        hebrewYear,
+        gregorian: { year: g.getFullYear(), month: g.getMonth() + 1, day: g.getDate() },
+        dayOfWeek: dow,
+        isShabbat,
+        isToday: abs === todayAbs,
+        holidays,
+        parashat,
+      });
+    }
+
+    // Build grid with leading nulls for alignment
+    const firstDay = days[0];
+    const grid: (CalendarDay | null)[] = [];
+    if (firstDay) {
+      for (let i = 0; i < firstDay.dayOfWeek; i++) grid.push(null);
+    }
+    days.forEach((d) => grid.push(d));
+
+    const gregMonthName = firstDay ? new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(new Date(firstDay.gregorian.year, firstDay.gregorian.month - 1, firstDay.gregorian.day)) : "";
+
+    return {
+      hebrewMonth: actualMonth,
+      hebrewYear,
+      hebrewMonthName: actualMonth,
+      gregorianMonthName: gregMonthName,
+      days,
+      grid,
+    };
+  }
+
+  return { convert, convertLocal, getHebrewDate, getShabbat, getZmanim, getLearning, getMonthData };
 }

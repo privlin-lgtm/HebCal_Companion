@@ -5,12 +5,14 @@ import type { Remembrance, RemembranceType } from "../domain/remembrance";
 import type { ConvertParams, ConvertResult, ShabbatPayload, ShabbatView, ShabbatItem } from "../domain/calendar";
 import type { ZmanimView } from "../domain/zmanim";
 import type { LearningView } from "../domain/learning";
+import type { MonthData } from "../domain/calendarView";
 
 export type { Location, SavedLocation, CoordinatesLocation } from "../domain/location";
 export type { Remembrance, RemembranceType } from "../domain/remembrance";
 export type { ConvertParams, ConvertResult, ShabbatPayload, ShabbatView, ShabbatItem } from "../domain/calendar";
 export type { ZmanimView } from "../domain/zmanim";
 export type { LearningView } from "../domain/learning";
+export type { MonthData, CalendarDay } from "../domain/calendarView";
 
 export type RequestOptions = { signal?: AbortSignal };
 
@@ -19,6 +21,7 @@ export type CalendarPort = {
   getShabbat(location: Location, options?: RequestOptions): Promise<ShabbatPayload>;
   getZmanim?(location: Location, date?: string, options?: RequestOptions): Promise<ZmanimView>;
   getLearning?(date?: string, options?: RequestOptions): Promise<LearningView>;
+  getMonthData?(hebrewYear: number, hebrewMonth: number, options?: RequestOptions): Promise<MonthData>;
   convertLocal?(params: ConvertParams): Promise<ConvertResult>;
   getHebrewDate?(date: Date, afterSunset?: boolean): Promise<ConvertResult>;
 };

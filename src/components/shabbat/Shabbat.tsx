@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "../../context/AppContext";
+import { useLocation } from "../../context/LocationContext";
 import { parseDirectLocation, DEFAULT_LOCATION, DEFAULT_LOCATION_NAME, type Location } from "../../domain/location";
 import { useToast } from "../../hooks/useToast";
 import type { ShabbatView } from "../../application/ports";
@@ -17,6 +18,7 @@ export function Shabbat() {
   const { t } = useTranslation();
   const { shabbatService } = useApp();
   const { showToast } = useToast();
+  const { setLocation } = useLocation();
   const [view, setView] = useState<ShabbatView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,7 @@ export function Shabbat() {
       const v = await shabbatService.load(location, fallbackName, { signal: controller.signal });
       if (controller.signal.aborted) return;
       setView(v);
+      setLocation(location, v.place);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setError((err as Error).message);
@@ -55,6 +58,7 @@ export function Shabbat() {
       const v = await shabbatService.searchAndLoad(c, co, { signal: controller.signal });
       if (controller.signal.aborted) return;
       setView(v);
+      setLocation(v.location, v.place);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setError((err as Error).message);

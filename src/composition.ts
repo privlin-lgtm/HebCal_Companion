@@ -61,6 +61,7 @@ export function createServices(): AppServices {
     getHebrewDate: (date, afterSunset) => localCalendar.getHebrewDate!(date, afterSunset),
     getShabbat: (location, options) => cachedApiCalendar.getShabbat(location, options),
     getZmanim: (location, date, options) => localCalendar.getZmanim!(location, date, options),
+    getMonthData: (hebrewYear, hebrewMonth, options) => localCalendar.getMonthData!(hebrewYear, hebrewMonth, options),
     getLearning: (date, options) => localCalendar.getLearning!(date, options),
   };
 
