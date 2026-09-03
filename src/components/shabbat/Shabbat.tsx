@@ -18,7 +18,7 @@ export function Shabbat() {
   const { t } = useTranslation();
   const { shabbatService } = useApp();
   const { showToast } = useToast();
-  const { setLocation } = useLocation();
+  const { setLocation, savedLocations, saveCurrentLocation, removeSavedLocation, setDefaultLocation } = useLocation();
   const [view, setView] = useState<ShabbatView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +118,7 @@ export function Shabbat() {
             <span className="text-2xl text-orange" aria-hidden="true">⌖</span>
           </div>
 
+          {/* Major city chips */}
           <div className="mb-6 flex flex-wrap gap-2" aria-label={t("shabbat.majorCities")}>
             {CITIES.map((c) => (
               <button
@@ -129,6 +130,45 @@ export function Shabbat() {
               </button>
             ))}
           </div>
+
+          {/* Saved locations */}
+          {savedLocations.length > 0 && (
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-widest text-muted">Saved</span>
+                <button onClick={() => { saveCurrentLocation(); showToast("Location saved."); }} className="text-xs font-bold text-orange hover:text-orange-dark">+ Save current</button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {savedLocations.map((saved) => (
+                  <div key={saved.id} className="flex items-center gap-1 rounded-full border border-[#cbc9bf] py-1 pl-2.5 pr-1 dark:border-line-dark">
+                    <button
+                      onClick={() => { setActiveChip(null); load(saved.location, saved.name); }}
+                      className="font-sans text-xs text-[#49595c] hover:text-orange-dark dark:text-ink-dark"
+                    >
+                      {saved.isDefault ? "\u2605 " : ""}{saved.name}
+                    </button>
+                    <button
+                      onClick={() => { setDefaultLocation(saved.id); showToast("Default set."); }}
+                      className="text-xs text-muted hover:text-orange"
+                      aria-label="Set as default"
+                      title="Set as default"
+                    >{"\u2605"}</button>
+                    <button
+                      onClick={() => { removeSavedLocation(saved.id); showToast("Location removed."); }}
+                      className="text-xs text-[#8c4741] hover:text-[#722d27]"
+                      aria-label="Remove location"
+                    >{"\u00d7"}</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {savedLocations.length === 0 && view?.place && (
+            <div className="mb-6">
+              <button onClick={() => { saveCurrentLocation(); showToast("Location saved."); }} className="text-xs font-bold text-orange hover:text-orange-dark">+ Save this location</button>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <p className="m-0 text-sm text-ink dark:text-ink-dark">{t("shabbat.searchCity")}</p>

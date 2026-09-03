@@ -11,6 +11,7 @@ import type {
   GeocoderPort,
   IdGenerator,
   LocationStore,
+  MultiLocationStore,
   NotificationPort,
   RemembranceRepository,
   SyncPort,
@@ -22,6 +23,7 @@ import { createHttpClient } from "./infrastructure/httpClient";
 import { createOpenMeteoGeocoder } from "./infrastructure/openMeteoGeocoder";
 import { createRemembranceRepository } from "./infrastructure/remembranceRepository";
 import { createLocationStore } from "./infrastructure/locationStore";
+import { createMultiLocationStore } from "./infrastructure/multiLocationStore";
 import { createResponseCache, type ResponseCache } from "./infrastructure/responseCache";
 import { createCachedCalendar } from "./infrastructure/cachedCalendar";
 import { createClock } from "./infrastructure/clock";
@@ -40,21 +42,16 @@ export type AppServices = {
   notifications: NotificationPort;
   sync: SyncPort;
   clock: Clock;
+  multiLocationStore: MultiLocationStore;
 };
 
 export function createServices(): AppServices {
   const httpJson = createHttpClient();
   const responseCache: ResponseCache = createResponseCache();
-
-  // Local calendar (offline-first) — primary
   const localCalendar = createHebcalLocalCalendar();
-
-  // API calendar (fallback) — wrapped with cache for degraded mode
   const apiCalendar = createHebcalApiCalendar({ httpJson });
   const cachedApiCalendar = createCachedCalendar({ calendar: apiCalendar, cache: responseCache });
 
-  // Use local calendar for conversion (offline), API for Shabbat (with cache)
-  // For now, use local as primary since it handles everything
   const calendar: CalendarPort = {
     convert: (params, options) => localCalendar.convert(params, options),
     convertLocal: (params) => localCalendar.convertLocal!(params),
@@ -74,6 +71,7 @@ export function createServices(): AppServices {
   const themeStore = createThemeStore();
   const notifications = createWebNotifications();
   const sync = createSupabaseSync();
+  const multiLocationStore = createMultiLocationStore({ ids });
 
   const convertService = createConvertService({ calendar });
   const shabbatService = createShabbatService({ calendar, geocoder, locationStore });
@@ -89,5 +87,6 @@ export function createServices(): AppServices {
     notifications,
     sync,
     clock,
+    multiLocationStore,
   };
 }
