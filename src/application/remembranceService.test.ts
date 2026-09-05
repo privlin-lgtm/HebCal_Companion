@@ -14,12 +14,18 @@ function makeFakeCalendar(): CalendarPort {
 function makeFakeRepo(initial: Remembrance[] = []): RemembranceRepository {
   let records = [...initial];
   return {
-    list: () => records,
-    saveAll: (r: Remembrance[]) => { records = r; return records; },
-    mergeUpcoming: (updates: Map<string, Partial<Remembrance>>) => {
+    list: async () => records,
+    saveAll: async (r: Remembrance[]) => { records = r; return records; },
+    mergeUpcoming: async (updates: Map<string, Partial<Remembrance>>) => {
       records = records.map((r) => updates.has(r.id) ? { ...r, ...updates.get(r.id) } : r);
       return records;
     },
+    applyRemote: async () => {},
+    pendingChanges: async () => [],
+    acknowledgeChanges: async () => {},
+    getCursor: async () => ({ sequence: 0 }),
+    setCursor: async () => {},
+    getDeviceId: async () => "test-device",
   };
 }
 
@@ -39,9 +45,9 @@ describe("createRemembranceService", () => {
     ids = makeFakeIds();
   });
 
-  it("list returns the repository contents", () => {
+  it("list returns the repository contents", async () => {
     const service = createRemembranceService({ calendar, remembrances: repo, ids });
-    expect(service.list()).toEqual([]);
+    expect(await service.list()).toEqual([]);
   });
 
   it("createFromGregorian converts and saves", async () => {
@@ -52,32 +58,32 @@ describe("createRemembranceService", () => {
     expect(record.name).toBe("Test");
     expect(record.hy).toBe(5786);
     expect(record.hm).toBe("Tishrei");
-    expect(service.list()).toHaveLength(1);
+    expect(await service.list()).toHaveLength(1);
   });
 
-  it("remove filters by id", () => {
+  it("remove filters by id and persists the result", async () => {
     const existing: Remembrance[] = [
       { id: "a", name: "A", type: "Yahrzeit", hy: 5786, hm: "Tishrei", hd: 1 },
       { id: "b", name: "B", type: "Anniversary", hy: 5786, hm: "Nisan", hd: 15 },
     ];
     repo = makeFakeRepo(existing);
     const service = createRemembranceService({ calendar, remembrances: repo, ids });
-    service.remove("a");
-    expect(service.list()).toHaveLength(1);
-    expect(service.list()[0].id).toBe("b");
+    await service.remove("a");
+    expect(await repo.list()).toHaveLength(1);
+    expect((await service.list())[0].id).toBe("b");
   });
 
-  it("exportBackup produces a version 2 export", () => {
+  it("exportBackup produces a version 2 export", async () => {
     repo = makeFakeRepo([
       { id: "a", name: "A", type: "Yahrzeit", hy: 5786, hm: "Tishrei", hd: 1 },
     ]);
     const service = createRemembranceService({ calendar, remembrances: repo, ids });
-    const backup = service.exportBackup();
+    const backup = await service.exportBackup();
     expect(backup.version).toBe(2);
     expect(backup.remembrances).toHaveLength(1);
   });
 
-  it("importBackup merges and reports counts", () => {
+  it("importBackup merges and reports counts and persists the result", async () => {
     repo = makeFakeRepo([
       { id: "a", name: "A", type: "Yahrzeit", hy: 5786, hm: "Tishrei", hd: 1 },
     ]);
@@ -86,9 +92,26 @@ describe("createRemembranceService", () => {
       { id: "a", name: "A", type: "Yahrzeit", hy: 5786, hm: "Tishrei", hd: 1 },
       { id: "b", name: "B", type: "Anniversary", hy: 5786, hm: "Nisan", hd: 15 },
     ];
-    const result = service.importBackup(incoming);
+    const result = await service.importBackup(incoming);
     expect(result.added).toBe(1);
     expect(result.skipped).toBe(1);
-    expect(service.list()).toHaveLength(2);
+    expect(await repo.list()).toHaveLength(2);
+  });
+
+  it("refreshUpcoming persists calculated dates", async () => {
+    const existing: Remembrance = {
+      id: "a", name: "A", type: "Yahrzeit", hy: 5786, hm: "Tishrei", hd: 1,
+    };
+    repo = makeFakeRepo([existing]);
+    const service = createRemembranceService({
+      calendar,
+      remembrances: repo,
+      ids,
+      clock: { now: () => new Date("2025-01-01T00:00:00.000Z"), todayIso: () => "2025-01-01" },
+    });
+
+    await service.refreshUpcoming(5786);
+
+    expect((await repo.list())[0].nextIso).toBe("2025-09-23");
   });
 });

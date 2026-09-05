@@ -1,6 +1,6 @@
 # Architecture
 
-Or Zarua (Hebrew Calendar Companion) is a local-first web application built with React 19, TypeScript, and Tailwind CSS v4. Calendar math runs locally via `@hebcal/core` for offline-first operation. An optional Supabase backend provides encrypted cross-device sync. Capacitor enables native iOS/Android deployment from the same codebase.
+Or Zarua (Hebrew Calendar Companion) is a local-first web application built with React 19, TypeScript, and Tailwind CSS v4. Calendar math runs locally via `@hebcal/core` for offline-first operation. An optional Supabase relay provides encrypted cross-device sync on top of an IndexedDB local store. Capacitor enables native iOS/Android deployment from the same codebase.
 
 ## Goals
 
@@ -12,7 +12,7 @@ Or Zarua (Hebrew Calendar Companion) is a local-first web application built with
 6. Display a Hebrew calendar month view with parashat, holidays, and learning schedule.
 7. Support English and Hebrew with full RTL layout.
 8. Work across phone, tablet, laptop, and smart display (kiosk mode).
-9. Optionally sync encrypted remembrances across devices via Supabase.
+9. Optionally sync encrypted remembrances across devices via a Supabase relay.
 10. Remain deployable as a static site (GitHub Pages) with no required backend.
 
 ## Layering
@@ -41,8 +41,8 @@ Dependency rule: **domain ← application ← infrastructure/components**. Outer
 | Styling | Tailwind CSS v4 | Logical properties (`ps-`, `pe-`, `ms-`, `me-`) make RTL trivial; `dark:` variant for dark mode; fast iteration without a component library |
 | i18n | i18next + react-i18next | Industry standard; interpolation, plurals, lazy loading; React integration via hooks |
 | Hosting | GitHub Pages static build | Matches "no required backend"; CI deploys `dist/` |
-| Privacy default | LocalStorage + export/import | Memorial data should not require an account |
-| Sync (optional) | Supabase with client-side encryption | Cross-device persistence; remembrances encrypted before upload; server only sees ciphertext |
+| Privacy default | IndexedDB local store + export/import | Memorial data should not require an account; IndexedDB persists across reloads and keeps the app usable offline |
+| Sync (optional) | Supabase relay with client-side encryption | Cross-device persistence via an intermittent, append-only encrypted change log; per-change AES-GCM encryption before upload; server never holds the passphrase, plaintext, or a full snapshot |
 | Offline | `@hebcal/core` + durable response cache | Local calendar math works fully offline; Shabbat API responses cached for degraded mode |
 | PWA | vite-plugin-pwa (Workbox) | Service worker generation, install prompt, runtime caching for API responses |
 | Native shell | Capacitor 6 | Same React codebase → iOS/Android apps; local notifications for reminders; minimal code changes |
@@ -56,10 +56,13 @@ Defined in `src/application/ports.ts`:
 
 - `CalendarPort` — convert dates, fetch Shabbat, get zmanim, get learning, local conversion
 - `GeocoderPort` — city/country → coordinates + timezone
-- `RemembranceRepository` — list/save/merge upcoming patches
+- `RemembranceRepository` — IndexedDB-backed records, outbox, tombstones, and pull cursor (`list`, `saveAll`, `mergeUpcoming`, `applyRemote`, `pendingChanges`, `acknowledgeChanges`, `getCursor`/`setCursor`, `getDeviceId`)
 - `LocationStore` — last Shabbat location preference
 - `MultiLocationStore` — saved locations (home, travel, community)
-- `SyncPort` — encrypted cross-device sync (auth, passphrase unlock/lock, push, pull)
+- `SyncPort` — Supabase auth (sign-in/sign-up/sign-out, auth-change events) plus passphrase unlock/lock and session state
+- `SyncRelay` — opaque encrypted row push/pull by cursor (`push`, `pull`; configured state)
+- `SyncCrypto` — per-change AES-GCM encrypt/decrypt with the session passphrase
+- `SyncCoordinator` — schedules intermittent sync cycles, exposes `SyncStatus`/last error, coalesces triggers, applies backoff
 - `NotificationPort` — schedule/cancel reminders (Web + Capacitor)
 - `Clock` / `IdGenerator` — injectable time and ids for tests
 - `ThemeStore` — light/dark/system theme preference
@@ -85,8 +88,17 @@ Sync is opt-in and additive. With `VITE_SUPABASE_URL` unset, `SyncPort.isConfigu
 - **Auth** is Supabase email/password (GoTrue). Sessions persist and refresh automatically; `detectSessionInUrl` is disabled because the app is served from a static subpath.
 - **Encryption** uses a versioned envelope, `{ v, kdf, iter, salt, iv, ct }`, serialized as JSON. A fresh 16-byte salt and 12-byte IV are generated per upload and travel with the ciphertext, so any device holding the passphrase can decrypt without the server storing key material, and KDF cost can be raised later without invalidating existing records.
 - **Key derivation** is PBKDF2-SHA256 at 210,000 iterations producing a 256-bit AES-GCM key. The passphrase lives only in a closure variable for the session; `lock()` clears it.
-- **Conflict handling** is last-write-wins per user, softened by an explicit merge on download: `pull()` returns records that are merged into local state by id, so downloading never silently drops local additions.
-- **Storage shape** is one row per user (`user_id` primary key) holding a single opaque blob. The schema reveals nothing beyond row existence and last-update time, though blob length still leaks a rough record count.
+- **Local store** is IndexedDB, never the relay. The `records` store holds active remembrances plus `{ version, deleted }` metadata, keeping deleted rows as durable tombstones; the `changes` store is the outbox of unacknowledged local edits; the `metadata` store holds the device id, Lamport counter, migration marker, and pull cursor. Local writes are fast and never block on the network.
+- **Change model** is record-level, not one blob per user. Every local create, update, or delete appends a versioned `SyncChange` (`upsert` or `delete`) to the outbox; each change is encrypted into an opaque `{ opId, data }` row before leaving the device. The relay table `sync_changes` is append-only with a server-generated `sequence`, a `(user_id, op_id)` uniqueness constraint that makes duplicate uploads idempotent, row-level security scoping each user to their own rows, and a `(user_id, sequence)` index for cursor pulls.
+- **Deterministic conflict ordering.** Versions are Lamport clocks `{ counter, deviceId }`. `compareSyncVersion` orders by counter, then by deviceId, so any two devices editing the same record converge on the same winner in every order of arrival; equal versions are no-ops. `shouldApplyChange` applies an incoming change only when its version is strictly newer, so replayed or stale rows never overwrite newer local state. `applyRemote` sorts incoming changes by version, applies only newer ones, raises the local Lamport counter to at least the incoming value, and never appends to the outbox — a remote change is never re-uploaded.
+- **Tombstones prevent resurrection.** A delete is a durable tombstone row that stays until a newer remote change supersedes it. Sync never resurrects a deleted record from an older pull, because the tombstone's version always beats older snapshots and the UI filters tombstoned ids.
+- **Intermittent relay, not a permanent connection.** The coordinator pushes pending changes and pulls by cursor at startup, on the `online` event, on window `focus`, on `visibilitychange` to visible, after auth/unlock changes, and on a 5-minute timer that runs only while the document is visible. There is no WebSocket and no persistent connection. Batches are capped at 100 changes; failed cycles retry with exponential backoff (5 s, 30 s, 5 min, capped at 15 min) and the delay resets after success. The pull cursor advances only after a batch decrypts and applies cleanly, so a failed apply is retried rather than skipped.
+- **Why a relay instead of peer-to-peer-only sync.** Direct device-to-device sync was rejected: devices are rarely online at the same time, browsers forbid unrestricted background networking on mobile, and NAT/firewall traversal effectively rules out serverless P2P. A shared, append-only relay gives every device an always-on mailbox to drain on its own schedule via cursor pulls — while remaining intermittent, since clients connect only on triggers rather than holding a permanent connection.
+- **Storage shape** at the relay reveals little: rows carry only a userId, an opaque dedup id, server sequence, timestamp, and ciphertext. Row count and timing are visible to the server, but the plaintext record, its name, and its delete/update semantics never are.
+
+## Mobile lifecycle
+
+The sync session and passphrase live in page memory for the current tab, so they are lost when the page is closed or reloaded; the next visit re-signs-in and re-unlocks before syncing. On mobile/PWA, browsers suspend background tabs and may throttle service workers, so timers, `focus`/`visibilitychange`, and network activity do not fire reliably while the app is suspended or closed. Sync therefore runs while the app is open and visible (startup, focus, visibility, 5-minute visible timer) and on the next launch after offline edits; there is no guaranteed background sync, and nothing depends on one. Offline edits always queue in the outbox and flush on the next live trigger.
 
 ## Failure modes
 
@@ -94,7 +106,8 @@ Sync is opt-in and additive. With `VITE_SUPABASE_URL` unset, `SyncPort.isConfigu
 - `@hebcal/core` unavailable (shouldn't happen — it's local) → fall back to Hebcal API
 - Abort on rapid city switches → stale responses discarded
 - QuotaExceeded on remembrances → explicit export guidance
-- Corrupt localStorage → empty list / ignored location preference
+- Corrupt IndexedDB / legacy localStorage → fresh local store, legacy data migrates once via the metadata marker; location preference ignored
+- Relay unavailable or failing during a cycle → local writes unaffected; pending changes stay in the outbox and retry with backoff
 - Supabase not configured → sync features hidden; app works fully offline
 - Capacitor not available → web Notifications API used instead
 
@@ -103,6 +116,7 @@ Sync is opt-in and additive. With `VITE_SUPABASE_URL` unset, `SyncPort.isConfigu
 1. **Primary**: `@hebcal/core` runs entirely in the browser — date conversion, holidays, parashat, zmanim, and candle-lighting times all work offline
 2. **Secondary**: Hebcal REST API for Shabbat times, wrapped with a durable `responseCache` that serves last-good responses with `_degraded: true` when the network fails
 3. **App shell**: vite-plugin-pwa generates a service worker that precaches the app shell and uses NetworkFirst strategy for API calls
+4. **Remembrances**: IndexedDB persists records, tombstones, and the outbox offline; edits made while offline flush to the relay on the next online/focus/visibility/startup trigger
 
 ## Multi-device strategy
 
@@ -129,7 +143,7 @@ Sync is opt-in and additive. With `VITE_SUPABASE_URL` unset, `SyncPort.isConfigu
 
 - **Unit (Vitest):** domain rules, adapters with injected `fetch`/storage, application services with fake ports, React components with Testing Library
 - **Typecheck:** `tsc --noEmit` on every CI run
-- **E2E (Playwright):** convert, Shabbat city switch, remembrance save/export against the production build
+- **E2E (Playwright):** convert, Shabbat city switch, remembrance save/export against the production build; offline local-first persistence across a reload; and a deterministic two-context sync/tombstone scenario that injects a shared in-memory relay through the composition seam — no real Supabase, no network — asserting that creates propagate, deletes tombstone, and reloads never resurrect a deleted record
 
 ## Roadmap
 

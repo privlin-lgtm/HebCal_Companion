@@ -7,6 +7,7 @@ import type { ZmanimView } from "../domain/zmanim";
 import type { LearningView } from "../domain/learning";
 import type { MonthData } from "../domain/calendarView";
 import type { WeeklyView } from "../domain/weeklyView";
+import type { EncryptedSyncChange, SyncChange, SyncCursor } from "../domain/sync";
 
 export type { Location, SavedLocation, CoordinatesLocation } from "../domain/location";
 export type { Remembrance, RemembranceType } from "../domain/remembrance";
@@ -15,6 +16,13 @@ export type { ZmanimView } from "../domain/zmanim";
 export type { LearningView } from "../domain/learning";
 export type { MonthData, CalendarDay } from "../domain/calendarView";
 export type { WeeklyView, WeeklyEvent } from "../domain/weeklyView";
+export type {
+  SyncVersion,
+  SyncChange,
+  SyncCursor,
+  SyncEnvelope,
+  EncryptedSyncChange,
+} from "../domain/sync";
 
 export type RequestOptions = { signal?: AbortSignal };
 
@@ -34,9 +42,15 @@ export type GeocoderPort = {
 };
 
 export type RemembranceRepository = {
-  list(): Remembrance[];
-  saveAll(records: Remembrance[]): Remembrance[];
-  mergeUpcoming(updatesById: Map<string, Partial<Remembrance>>): Remembrance[];
+  list(): Promise<Remembrance[]>;
+  saveAll(records: Remembrance[]): Promise<Remembrance[]>;
+  mergeUpcoming(updatesById: Map<string, Partial<Remembrance>>): Promise<Remembrance[]>;
+  applyRemote(changes: SyncChange[]): Promise<void>;
+  pendingChanges(): Promise<SyncChange[]>;
+  acknowledgeChanges(opIds: string[]): Promise<void>;
+  getCursor(): Promise<SyncCursor>;
+  setCursor(cursor: SyncCursor): Promise<void>;
+  getDeviceId(): Promise<string>;
 };
 
 export type LocationStore = {
@@ -58,6 +72,15 @@ export type StorageLike = { getItem(key: string): string | null; setItem(key: st
 
 export type SyncUser = { id: string; email: string | null };
 
+export type SyncRelay = {
+  isConfigured(): boolean;
+  push(user: SyncUser, changes: EncryptedSyncChange[]): Promise<void>;
+  pull(user: SyncUser, cursor: SyncCursor): Promise<{
+    cursor: SyncCursor;
+    changes: Array<EncryptedSyncChange & { sequence: number }>;
+  }>;
+};
+
 export type SyncPort = {
   /** False when the build has no Supabase credentials, so the UI can hide sync entirely. */
   isConfigured(): boolean;
@@ -74,6 +97,43 @@ export type SyncPort = {
   push(remembrances: Remembrance[]): Promise<void>;
   pull(): Promise<Remembrance[] | null>;
   getLastSync(): string | null;
+};
+
+// ---------------------------------------------------------------------------
+// Sync coordinator contracts
+// ---------------------------------------------------------------------------
+
+export type SyncStatus = "disabled" | "locked" | "idle" | "queued" | "syncing" | "error";
+
+export type SyncCoordinator = {
+  /** Registers online, visibility, focus, and auth/unlock triggers. Returns cleanup. */
+  start(): () => void;
+  /** Runs one push/ack/pull cycle (coalesced if already in-flight). */
+  syncNow(): Promise<void>;
+  getStatus(): SyncStatus;
+  getLastError(): string | null;
+  subscribe(listener: () => void): () => void;
+};
+
+/** Encrypts/decrypts individual sync changes using the session passphrase. */
+export type SyncCrypto = {
+  encrypt(change: SyncChange): Promise<string>;
+  decrypt(payload: string): Promise<SyncChange>;
+};
+
+/** Network connectivity probe and online-event subscription. */
+export type NetworkPort = {
+  isOnline(): boolean;
+  onOnline(listener: () => void): () => void;
+};
+
+/** Timer, visibility, and focus abstraction for testable scheduling. */
+export type SchedulerPort = {
+  setTimeout(handler: () => void, ms: number): () => void;
+  setInterval(handler: () => void, ms: number): () => void;
+  isVisible(): boolean;
+  onVisibilityChange(listener: () => void): () => void;
+  onFocus(listener: () => void): () => void;
 };
 
 export type NotificationPort = {

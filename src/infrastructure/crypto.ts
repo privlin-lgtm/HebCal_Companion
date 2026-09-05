@@ -7,11 +7,17 @@
  * without the server storing key material.
  */
 
+import type { SyncChange, SyncVersion } from "../domain/sync";
+import { isRemembrance } from "../domain/remembrance";
+
 const KDF_ITERATIONS = 210_000;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 const ENVELOPE_VERSION = 1;
 const MAX_ITERATIONS = 500_000;
+
+/** Maximum allowed size (in characters) of a single encrypted sync-change payload. */
+const MAX_SYNC_CHANGE_PAYLOAD = 64 * 1024;
 
 type Envelope = {
   v: number;
@@ -125,4 +131,60 @@ export async function decryptJson(payload: string, passphrase: string): Promise<
     throw new Error("Could not decrypt your data. Check that the passphrase matches the one used on your other device.");
   }
   return JSON.parse(new TextDecoder().decode(plaintext));
+}
+
+// ---------------------------------------------------------------------------
+// Typed sync-change encryption helpers
+// ---------------------------------------------------------------------------
+
+function isSyncVersion(value: unknown): value is SyncVersion {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Partial<SyncVersion>;
+  return typeof v.counter === "number"
+    && Number.isInteger(v.counter)
+    && v.counter >= 0
+    && typeof v.deviceId === "string"
+    && v.deviceId.length > 0
+    && v.deviceId.length <= 200;
+}
+
+/** Validates that a decrypted value is a well-formed {@link SyncChange}. */
+function isSyncChange(value: unknown): value is SyncChange {
+  if (typeof value !== "object" || value === null) return false;
+  const c = value as Partial<SyncChange> & { kind?: unknown };
+  if (typeof c.opId !== "string" || c.opId.length === 0 || c.opId.length > 200) return false;
+  if (typeof c.recordId !== "string" || c.recordId.length === 0 || c.recordId.length > 80) return false;
+  if (typeof c.deviceId !== "string" || c.deviceId.length === 0 || c.deviceId.length > 200) return false;
+  if (!isSyncVersion(c.version)) return false;
+  if (c.kind === "upsert") return isRemembrance(c.record);
+  if (c.kind === "delete") return true;
+  return false;
+}
+
+/**
+ * Encrypts a single sync change into a self-describing envelope string.
+ *
+ * The plaintext change is never logged or exposed; only the ciphertext leaves
+ * the device via the relay.
+ */
+export async function encryptSyncChange(change: SyncChange, passphrase: string): Promise<string> {
+  return encryptJson(change, passphrase);
+}
+
+/**
+ * Decrypts an envelope produced by {@link encryptSyncChange} and validates the
+ * result is a well-formed {@link SyncChange} before returning it.
+ *
+ * Rejects oversized payloads, malformed envelopes, and changes whose fields
+ * fail schema validation so corrupt relay rows can never reach the local store.
+ */
+export async function decryptSyncChange(payload: string, passphrase: string): Promise<SyncChange> {
+  if (typeof payload !== "string" || payload.length > MAX_SYNC_CHANGE_PAYLOAD) {
+    throw new Error("Sync change payload is missing or too large to be safe.");
+  }
+  const decrypted = await decryptJson(payload, passphrase);
+  if (!isSyncChange(decrypted)) {
+    throw new Error("Decrypted sync change failed validation.");
+  }
+  return decrypted;
 }

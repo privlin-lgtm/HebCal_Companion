@@ -4,33 +4,37 @@ import { mergeImported, parseImport, serializeExport, type RemembranceExport } f
 import { isoDate } from "../domain/dates";
 
 export type RemembranceService = {
-  list(): Remembrance[];
-  remove(id: string): Remembrance[];
+  list(): Promise<Remembrance[]>;
+  remove(id: string): Promise<Remembrance[]>;
   createFromGregorian(params: { name: string; type: RemembranceType; gy: number; gm: number; gd: number; afterSunset?: boolean; originalDate?: string; notifyEnabled?: boolean }): Promise<Remembrance>;
-  updateNotification(id: string, enabled: boolean, daysBefore?: number): Remembrance[];
+  updateNotification(id: string, enabled: boolean, daysBefore?: number): Promise<Remembrance[]>;
   refreshUpcoming(hebrewYear?: number): Promise<Remembrance[]>;
-  exportBackup(): RemembranceExport;
-  importBackup(payload: unknown): ReturnType<typeof mergeImported>;
-  mergeRecords(incoming: Remembrance[]): ReturnType<typeof mergeImported>;
+  exportBackup(): Promise<RemembranceExport>;
+  importBackup(payload: unknown): Promise<ReturnType<typeof mergeImported>>;
+  mergeRecords(incoming: Remembrance[]): Promise<ReturnType<typeof mergeImported>>;
 };
 
 export function createRemembranceService({ calendar, remembrances, ids, clock = { now: () => new Date(), todayIso: () => isoDate() } }: {
   calendar: CalendarPort; remembrances: RemembranceRepository; ids: IdGenerator; clock?: Clock;
 }): RemembranceService {
-  function list() { return remembrances.list(); }
-  function remove(id: string) { return remembrances.saveAll(remembrances.list().filter((row) => row.id !== id)); }
+  async function list() { return remembrances.list(); }
+  async function remove(id: string) {
+    const records = await remembrances.list();
+    return remembrances.saveAll(records.filter((row) => row.id !== id));
+  }
   async function createFromGregorian({ name, type, gy, gm, gd, afterSunset, originalDate, notifyEnabled = false }: { name: string; type: RemembranceType; gy: number; gm: number; gd: number; afterSunset?: boolean; originalDate?: string; notifyEnabled?: boolean }) {
     const converted = await calendar.convert({ gy, gm, gd, g2h: 1, ...(afterSunset ? { gs: "on" } : {}) });
     const record: Remembrance = { id: ids.next(), name, type, hy: converted.hy, hm: converted.hm, hd: converted.hd, originalDate, notifyEnabled };
-    remembrances.saveAll([...remembrances.list(), record]);
+    const records = await remembrances.list();
+    await remembrances.saveAll([...records, record]);
     return record;
   }
-  function updateNotification(id: string, enabled: boolean, daysBefore = 1) {
-    const records = remembrances.list().map((r) => r.id === id ? { ...r, notifyEnabled: enabled, notifyDaysBefore: daysBefore } : r);
+  async function updateNotification(id: string, enabled: boolean, daysBefore = 1) {
+    const records = (await remembrances.list()).map((r) => r.id === id ? { ...r, notifyEnabled: enabled, notifyDaysBefore: daysBefore } : r);
     return remembrances.saveAll(records);
   }
   async function refreshUpcoming(hebrewYear?: number) {
-    const records = remembrances.list();
+    const records = await remembrances.list();
     if (!records.length) return records;
     let year = hebrewYear;
     if (!year) {
@@ -42,16 +46,16 @@ export function createRemembranceService({ calendar, remembrances, ids, clock = 
     if (updates.size) return remembrances.mergeUpcoming(updates);
     return records;
   }
-  function exportBackup() { return serializeExport(remembrances.list(), clock.now().toISOString()); }
-  function importBackup(payload: unknown) {
+  async function exportBackup() { return serializeExport(await remembrances.list(), clock.now().toISOString()); }
+  async function importBackup(payload: unknown) {
     const incoming = parseImport(payload);
-    const merged = mergeImported(remembrances.list(), incoming);
-    remembrances.saveAll(merged.records);
+    const merged = mergeImported(await remembrances.list(), incoming);
+    await remembrances.saveAll(merged.records);
     return merged;
   }
-  function mergeRecords(incoming: Remembrance[]) {
-    const merged = mergeImported(remembrances.list(), incoming);
-    remembrances.saveAll(merged.records);
+  async function mergeRecords(incoming: Remembrance[]) {
+    const merged = mergeImported(await remembrances.list(), incoming);
+    await remembrances.saveAll(merged.records);
     return merged;
   }
   return { list, remove, createFromGregorian, updateNotification, refreshUpcoming, exportBackup, importBackup, mergeRecords };

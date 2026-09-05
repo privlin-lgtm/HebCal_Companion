@@ -15,13 +15,13 @@
 - **Zmanim panel** — daily halachic times (Alot, Misheyakir, Sof Zman Shma/Tfilla, Chatzot, Mincha, Plag, Tzeit)
 - **Daily learning** — Daf Yomi and Mishna Yomi schedule
 - **Weekly guide** — upcoming holidays, special Shabbatot, and seasonal notes
-- **Remembrances** — save yahrzeits, anniversaries, Bar/Bat Mitzvahs, Hebrew birthdays, and fast days locally; compute next secular observance date
+- **Remembrances** — save yahrzeits, anniversaries, Bar/Bat Mitzvahs, Hebrew birthdays, and fast days locally in IndexedDB; compute next secular observance date
 - **Multi-location** — save, switch, and set a default among home, travel, and community locations
-- **Encrypted cross-device sync** — optional Supabase sync; records are AES-GCM encrypted in the browser under a passphrase that never leaves the device
+- **Encrypted cross-device sync** — optional, opt-in relay sync on top of the local store: local edits queue in an outbox and push automatically when the app starts, comes back online, or regains focus/visibility, AES-GCM encrypted in the browser under a passphrase that never leaves the device
 - **Notifications** — yahrzeit reminders via Web Notifications
 - **Kiosk mode** — always-on display for smart displays and mounted tablets (`?kiosk`)
-- **Export / import** — JSON backups with schema validation, plus iCal export with reminder alarms
-- **Offline-first** — local Hebrew date math via `@hebcal/core`; last successful API responses cached for degraded mode
+- **Export / import** — JSON backups with schema validation, plus iCal export with reminder alarms; explicit recovery and portability path that works with or without sync
+- **Offline-first** — local Hebrew date math via `@hebcal/core`; remembrances persist in IndexedDB across reloads; last successful API responses cached for degraded mode
 - **Bilingual** — English and Hebrew with full RTL layout support (i18next)
 - **Dark mode** — system-aware with manual toggle
 - **PWA** — installable, offline app shell via service worker
@@ -41,7 +41,7 @@
 | i18n | i18next + react-i18next (en/he) |
 | Calendar math | `@hebcal/core` (offline-first) |
 | API fallback | Hebcal REST API + Open-Meteo Geocoding |
-| Sync | `@supabase/supabase-js` (encrypted, optional) |
+| Sync | `@supabase/supabase-js` (encrypted, optional, intermittent relay) |
 | PWA | `vite-plugin-pwa` (Workbox) |
 | Native shell | `@capacitor/core` (iOS/Android, future) |
 | Validation | `zod` (runtime schema validation) |
@@ -61,35 +61,28 @@ Open the URL Vite prints (typically `http://localhost:5173/HebCal_Companion/`).
 
 ## Cross-device sync (optional)
 
-The app is fully usable without this. When configured, remembrances can be pushed to and pulled from Supabase, encrypted client-side.
+The app is fully usable without this. Remembrances are stored locally in **IndexedDB** (the local source of truth) and work offline. When configured, changes sync automatically — but intermittently — to **Supabase** as an encrypted relay: the server only stores opaque ciphertext rows and is never the authoritative store.
 
-1. Create a Supabase project, then run this once in the SQL editor:
-
-   ```sql
-   create table if not exists public.remembrances (
-     user_id uuid primary key references auth.users(id) on delete cascade,
-     data text not null,
-     updated_at timestamptz not null default now()
-   );
-
-   alter table public.remembrances enable row level security;
-
-   create policy "Users manage own remembrances"
-     on public.remembrances
-     as permissive
-     for all
-     to authenticated
-     using (auth.uid() = user_id)
-     with check (auth.uid() = user_id);
-   ```
-
-   `user_id` must be the primary key: the adapter upserts on it.
+1. Create a Supabase project, then run the relay schema once in the SQL editor: open **`docs/supabase-sync.sql`** and execute it. It creates the append-only `public.sync_changes` table (an encrypted change log with `(user_id, op_id)` idempotency and row-level security) and keeps the legacy `public.remembrances` table readable for migration.
 
 2. Copy `.env.example` to `.env.local` and fill in your project URL and publishable (anon) key. Never put a `service_role` or `sb_secret_` key in a client bundle.
 
 3. Restart `npm run dev`. A sync panel appears in the Remembrances section. Sign in, then enter an **encryption passphrase**.
 
+### How automatic sync works
+
+- Every local create, update, or delete is written to IndexedDB immediately and queued in an outbox; local writes never wait on the network.
+- A sync coordinator automatically pushes pending changes and pulls remote changes when the app starts, when the connection comes back online, when the window regains focus, when the tab becomes visible, and on a ~5-minute timer while the tab stays visible. Sync is opt-in: it only runs after you sign in **and** unlock with your passphrase.
+- Deletes are durable tombstones, so a record removed on one device stays removed everywhere instead of resurrecting from an older copy.
+- **"Sync now"** remains in the panel for an immediate manual sync. **Export / import** stays the explicit recovery and portability path and works with or without sync.
+
+### Passphrase
+
 The passphrase is separate from your account password. A 256-bit AES-GCM key is derived from it with PBKDF2-SHA256 (210,000 iterations) and held in memory for the session only, so the server stores nothing but ciphertext. Use the same passphrase on every device. **If you lose it, synced data cannot be recovered.**
+
+### Mobile / PWA limitations
+
+Browsers can suspend background tabs and throttle service workers, so sync runs while the app is open and visible (or the next time you open it) — there is no guaranteed background sync while the app is closed or suspended. The relay connection is intermittent by design and never stays open permanently.
 
 Production build:
 
@@ -111,12 +104,13 @@ src/
     dates.ts       Date formatting, after-sunset logic
     zmanim.ts      Zmanim types and ordering
     learning.ts    Daily learning types
+    sync.ts        SyncChange/SyncVersion/cursor types + conflict ordering
   application/     Use cases (ports in, DTOs out)
     ports.ts       Dependency contracts (CalendarPort, GeocoderPort, etc.)
     convertService.ts
     shabbatService.ts
     remembranceService.ts
-  infrastructure/  Adapters (Hebcal, Open-Meteo, localStorage, Supabase, Capacitor)
+  infrastructure/  Adapters (Hebcal, Open-Meteo, localStorage, IndexedDB, Supabase, Capacitor)
     hebcalLocal.ts  @hebcal/core offline adapter (primary)
     hebcalApi.ts    Hebcal REST API adapter (fallback)
     cachedCalendar.ts  Degrade-mode decorator
@@ -124,7 +118,10 @@ src/
     openMeteoGeocoder.ts
     remembranceRepository.ts
     locationStore.ts
-    supabaseSync.ts   Encrypted cross-device sync
+    indexedDb.ts        IndexedDB schema + transaction helpers
+    indexedDbRemembranceRepository.ts  Records/outbox/tombstones/cursor
+    supabaseSync.ts     Encrypted relay + auth
+    syncCoordinator.ts  Intermittent push/pull scheduling + retries
     webNotifications.ts
     capacitorBridge.ts
     themeStore.ts
@@ -155,11 +152,13 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
+E2E coverage includes core flows plus the sync scenarios added with the encrypted-sync work: an offline local-first persistence test (create → reload → still there) and a deterministic two-context sync/tombstone test that shares an in-memory fake relay between two browser contexts — no real Supabase account is ever contacted.
+
 ## Data sources & privacy
 
 - Calendar / zmanim / holidays: [Hebcal](https://www.hebcal.com/) (API) + `@hebcal/core` (local)
 - City lookup: [Open-Meteo Geocoding](https://open-meteo.com/en/docs/geocoding-api)
-- Sync (optional): [Supabase](https://supabase.com/) — remembrances are encrypted client-side before upload
+- Sync (optional): [Supabase](https://supabase.com/) — an encrypted relay; changes are AES-GCM encrypted in the browser before upload and synced intermittently
 - Remembrance **names** stay in your browser
 - Original memorial **dates** are sent to Hebcal only to convert and refresh upcoming observance dates
 - No analytics, no tracking, no third-party scripts

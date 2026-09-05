@@ -22,17 +22,17 @@ test.describe("Or Zarua core flows", () => {
   test("switches converter to Hebrew-to-Gregorian tab", async ({ page }) => {
     await page.goto("./");
     await page.getByRole("tab", { name: "Hebrew to Gregorian" }).click();
-    await expect(page.getByLabel("Hebrew month")).toBeVisible();
+    await expect(page.getByLabel("Hebrew month", { exact: true })).toBeVisible();
   });
 
   test("loads Shabbat times for the default city", async ({ page }) => {
     await page.goto("./");
-    await expect(page.getByText("Welcome Shabbat well")).toBeVisible();
+    await expect(page.getByText("Welcome Shabbat")).toBeVisible();
     // Shabbat content should load (not show error)
     await expect(page.getByText("Unable to load Shabbat times")).toBeHidden({ timeout: 20_000 });
     // Should show candle lighting and havdalah labels
     await expect(page.getByText("Candle lighting")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText("Havdalah")).toBeVisible();
+    await expect(page.getByText("Havdalah", { exact: true })).toBeVisible();
   });
 
   test("switches Shabbat city", async ({ page }) => {
@@ -69,7 +69,7 @@ test.describe("Or Zarua core flows", () => {
     await page.goto("./");
     await expect(page.getByText("Hebrew month view")).toBeVisible();
     // Should show weekday headers
-    await expect(page.getByText("Sun")).toBeVisible();
+    await expect(page.getByText("Sun", { exact: true })).toBeVisible();
   });
 
   test("shows zmanim panel", async ({ page }) => {

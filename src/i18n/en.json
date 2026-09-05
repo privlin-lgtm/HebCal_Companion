@@ -198,7 +198,18 @@
     "uploaded": "Uploaded {{count}} remembrance(s), encrypted.",
     "downloaded": "Merged {{count}} remembrance(s) from the cloud.",
     "nothingToDownload": "Nothing saved in the cloud yet.",
-    "working": "Working…"
+    "working": "Working…",
+    "syncNow": "Sync now",
+    "retry": "Retry",
+    "status": {
+      "idle": "Ready",
+      "syncing": "Syncing…",
+      "synced": "Up to date",
+      "error": "Sync error",
+      "locked": "Locked",
+      "offline": "Offline",
+      "queued": "Queued"
+    }
   },
   "about": {
     "text": "Calendar and zmanim data provided by Hebcal.com. Your remembrances are encrypted and stored only in your browser."

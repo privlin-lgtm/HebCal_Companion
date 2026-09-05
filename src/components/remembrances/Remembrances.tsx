@@ -24,14 +24,28 @@ export function Remembrances() {
   const [date, setDate] = useState(isoDate());
   const [afterSunset, setAfterSunset] = useState(false);
 
-  function refresh() {
-    setRecords([...remembranceService.list()]);
+  async function refresh() {
+    setRecords([...(await remembranceService.list())]);
   }
 
   useEffect(() => {
-    refresh();
-    // Refresh upcoming dates on mount
-    remembranceService.refreshUpcoming().then(refresh).catch(() => {});
+    let alive = true;
+    async function load() {
+      try {
+        const initial = await remembranceService.list();
+        if (!alive) return;
+        setRecords([...initial]);
+        // Refresh upcoming dates on mount
+        await remembranceService.refreshUpcoming();
+        if (!alive) return;
+        const refreshed = await remembranceService.list();
+        if (alive) setRecords([...refreshed]);
+      } catch {
+        // An unavailable calendar should not prevent local records from loading.
+      }
+    }
+    void load();
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -47,9 +61,9 @@ export function Remembrances() {
       setName("");
       setAfterSunset(false);
       setDate(isoDate());
-      refresh();
+      await refresh();
       await remembranceService.refreshUpcoming();
-      refresh();
+      await refresh();
       showToast(t("remembrances.saved"));
     } catch (err) {
       setDialogError((err as Error).message);
@@ -58,10 +72,10 @@ export function Remembrances() {
     }
   }
 
-  function handleDelete(id: string, remembranceName: string) {
+  async function handleDelete(id: string, remembranceName: string) {
     try {
-      remembranceService.remove(id);
-      refresh();
+      await remembranceService.remove(id);
+      await refresh();
       showToast(t("remembrances.removed"));
     } catch (err) {
       showToast((err as Error).message, true);
@@ -74,8 +88,8 @@ export function Remembrances() {
     showToast(records.length ? t("remembrances.icalExported") : t("remembrances.icalExportedEmpty"));
   }
 
-  function handleExport() {
-    const payload = remembranceService.exportBackup();
+  async function handleExport() {
+    const payload = await remembranceService.exportBackup();
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -95,10 +109,10 @@ export function Remembrances() {
       return;
     }
     try {
-      const merged = remembranceService.importBackup(await file.text());
-      refresh();
+      const merged = await remembranceService.importBackup(await file.text());
+      await refresh();
       await remembranceService.refreshUpcoming();
-      refresh();
+      await refresh();
       showToast(`${t("remembrances.imported", { count: merged.added })} ${merged.skipped ? t("remembrances.skipped", { count: merged.skipped }) : ""}`.trim());
     } catch (err) {
       showToast((err as Error).message, true);
@@ -133,9 +147,9 @@ export function Remembrances() {
       <SyncPanel
         records={records}
         onMerged={async () => {
-          refresh();
+          await refresh();
           await remembranceService.refreshUpcoming();
-          refresh();
+          await refresh();
         }}
       />
 

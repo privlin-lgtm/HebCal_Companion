@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "../../context/AppContext";
 import { useLocation } from "../../context/LocationContext";
-import { parseDirectLocation, DEFAULT_LOCATION_NAME, type Location } from "../../domain/location";
+import { DEFAULT_LOCATION_NAME, type Location } from "../../domain/location";
 import { useToast } from "../../hooks/useToast";
 import type { ShabbatView } from "../../application/ports";
 
@@ -25,7 +25,6 @@ export function Shabbat() {
   const [activeChip, setActiveChip] = useState<string | null>(null);
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
-  const [directLocation, setDirectLocation] = useState("");
   const abortRef = useRef<AbortController | null>(null);
 
   async function load(location: Location, fallbackName: string) {
@@ -84,17 +83,9 @@ export function Shabbat() {
     e.preventDefault();
     const c = city.trim();
     const co = country.trim();
-    const direct = directLocation.trim();
-    if (c || co) {
-      if (!c || !co) { showToast(t("shabbat.enterBoth"), true); return; }
-      setActiveChip(null);
-      searchAndLoad(c, co);
-      return;
-    }
-    if (!direct) { showToast(t("shabbat.enterBoth"), true); return; }
-    const loc = parseDirectLocation(direct);
+    if (!c || !co) { showToast(t("shabbat.enterBoth"), true); return; }
     setActiveChip(null);
-    if (loc) load(loc, direct);
+    searchAndLoad(c, co);
   }
 
   return (
@@ -184,18 +175,6 @@ export function Shabbat() {
             </div>
             <button type="submit" className="w-full rounded-lg border border-[#bfc5c0] bg-white px-4 py-2.5 font-sans text-sm font-bold text-ink hover:bg-warm dark:border-line-dark dark:bg-warm-dark dark:text-ink-dark">{t("shabbat.findCity")}</button>
 
-            <div className="my-4 flex items-center gap-2 font-sans text-xs uppercase tracking-wide text-muted">
-              <span className="h-px flex-1 bg-[#d3d1c8] dark:bg-line-dark" />
-              {t("shabbat.orDirect")}
-              <span className="h-px flex-1 bg-[#d3d1c8] dark:bg-line-dark" />
-            </div>
-
-            <label htmlFor="s-direct" className="mb-1 block font-sans text-xs font-bold text-[#46555b]">{t("shabbat.zipOrCode")}</label>
-            <div className="flex gap-2">
-              <input id="s-direct" value={directLocation} onChange={(e) => setDirectLocation(e.target.value)} placeholder="10001 or IL-Jerusalem" className="w-full rounded-lg border border-[#cbc9bf] bg-[#fffefc] p-3 dark:border-line-dark dark:bg-warm-dark" />
-              <button type="submit" className="flex-none rounded-lg border border-[#bfc5c0] bg-white px-4 py-2.5 font-sans text-sm font-bold text-ink hover:bg-warm dark:border-line-dark dark:bg-warm-dark dark:text-ink-dark">{t("shabbat.update")}</button>
-            </div>
-            <p className="mt-2 font-sans text-xs leading-relaxed text-muted">{t("shabbat.fieldHelp")}</p>
           </form>
         </div>
 

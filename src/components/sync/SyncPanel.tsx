@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../hooks/useToast";
-import type { Remembrance, SyncUser } from "../../application/ports";
+import type { Remembrance, SyncStatus, SyncUser } from "../../application/ports";
 
 type Props = {
   records: Remembrance[];
@@ -13,9 +13,27 @@ const inputClass = "w-full rounded-lg border border-[#cbc9bf] bg-[#fffefc] p-3 d
 const buttonClass = "rounded-lg border border-[#bfc5c0] bg-white px-4 py-2 font-sans text-sm font-bold text-ink hover:bg-warm disabled:opacity-50 dark:border-line-dark dark:bg-warm-dark dark:text-ink-dark";
 const primaryClass = "rounded-lg bg-orange px-4 py-2 font-sans text-sm font-bold text-white hover:bg-orange-dark disabled:opacity-50";
 
-export function SyncPanel({ records, onMerged }: Props) {
+/** Maps coordinator status to a translated label. `disabled` is never shown
+ *  because the panel is hidden entirely when Supabase is not configured. */
+function statusLabel(status: SyncStatus): string {
+  switch (status) {
+    case "syncing":
+    case "queued":
+      return "sync.status.syncing";
+    case "error":
+      return "sync.status.error";
+    case "locked":
+      return "sync.status.locked";
+    case "idle":
+      return "sync.status.synced";
+    default:
+      return "sync.status.idle";
+  }
+}
+
+export function SyncPanel({ onMerged }: Props) {
   const { t } = useTranslation();
-  const { sync, remembranceService } = useApp();
+  const { sync, syncCoordinator } = useApp();
   const { showToast } = useToast();
   const configured = sync.isConfigured();
 
@@ -27,6 +45,7 @@ export function SyncPanel({ records, onMerged }: Props) {
   const [unlocked, setUnlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [status, setStatus] = useState<SyncStatus>(syncCoordinator.getStatus());
 
   useEffect(() => {
     if (!configured) return;
@@ -38,6 +57,13 @@ export function SyncPanel({ records, onMerged }: Props) {
       if (!next) setUnlocked(false);
     });
   }, [configured, sync]);
+
+  // Subscribe to coordinator status so the badge reflects automatic cycles.
+  useEffect(() => {
+    if (!configured) return;
+    setStatus(syncCoordinator.getStatus());
+    return syncCoordinator.subscribe(() => setStatus(syncCoordinator.getStatus()));
+  }, [configured, syncCoordinator]);
 
   if (!configured) return null;
 
@@ -67,36 +93,24 @@ export function SyncPanel({ records, onMerged }: Props) {
       setUnlocked(true);
       setPassphrase("");
       showToast(t("sync.unlocked"));
+      void syncCoordinator.syncNow();
     } catch (err) {
       showToast((err as Error).message, true);
     }
   }
 
-  async function handleUpload() {
+  async function handleSyncNow() {
     setBusy(true);
     try {
-      await sync.push(records);
-      setLastSync(sync.getLastSync());
-      showToast(t("sync.uploaded", { count: records.length }));
-    } catch (err) {
-      showToast((err as Error).message, true);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleDownload() {
-    setBusy(true);
-    try {
-      const remote = await sync.pull();
-      if (!remote) {
-        showToast(t("sync.nothingToDownload"));
-        return;
+      await syncCoordinator.syncNow();
+      const err = syncCoordinator.getLastError();
+      if (err) {
+        // The coordinator stores only exception messages, never the passphrase
+        // or decrypted payload, so surfacing the last error is safe.
+        showToast(t("sync.syncFailed", { error: err }), true);
+      } else if (syncCoordinator.getStatus() === "idle") {
+        showToast(t("sync.synced", { time: new Date().toLocaleTimeString() }));
       }
-      const merged = remembranceService.mergeRecords(remote);
-      setLastSync(sync.getLastSync());
-      await onMerged();
-      showToast(t("sync.downloaded", { count: merged.added }));
     } catch (err) {
       showToast((err as Error).message, true);
     } finally {
@@ -163,10 +177,16 @@ export function SyncPanel({ records, onMerged }: Props) {
             </form>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
-                <button onClick={handleUpload} disabled={busy} className={primaryClass}>{t("sync.upload")}</button>
-                <button onClick={handleDownload} disabled={busy} className={buttonClass}>{t("sync.download")}</button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button onClick={handleSyncNow} disabled={busy} className={primaryClass}>{t("sync.syncNow")}</button>
                 <button onClick={() => { sync.lock(); setUnlocked(false); }} className={buttonClass}>{t("sync.lock")}</button>
+                <span
+                  className="font-sans text-xs font-bold text-muted"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {t(statusLabel(status))}
+                </span>
               </div>
               <span className="font-sans text-xs text-muted">
                 {t("sync.lastSync")}: {lastSync ? new Date(lastSync).toLocaleString() : t("sync.never")}

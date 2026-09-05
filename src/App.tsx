@@ -29,6 +29,12 @@ export function App() {
     applyLanguage(i18n.language === "he" ? "he" : "en");
   }, [i18n.language]);
 
+  // Start the automatic sync coordinator (online/visibility/focus triggers and
+  // a visible-only timer) and tear down its listeners/timers on unmount. The
+  // coordinator self-disables when Supabase is not configured, so this is safe
+  // to run in every build.
+  useEffect(() => services.syncCoordinator.start(), [services]);
+
   if (isKiosk) {
     return (
       <AppProvider services={services}>
